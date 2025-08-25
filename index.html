@@ -457,6 +457,126 @@
       lines.push('');
       lines.push('Open in calculator: '+location.href);
 
+      const plain = lines.join('
+');
+      const subj = 'Lane Proposal – Map & RPM';
+      const encSubj = encodeURIComponent(subj);
+      const encBody = encodeURIComponent(plain);
+
+      // 1) Try default mail client via mailto
+      let opened = false;
+      try{ opened = !!window.open(`mailto:?subject=${encSubj}&body=${encBody}`, '_self'); }catch(_){}
+
+      // 2) Try Gmail web compose (most reliable on many setups)
+      if(!opened){
+        try{ opened = !!window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encSubj}&body=${encBody}`, '_blank'); }catch(_){}
+      }
+
+      // 3) Try Outlook web compose
+      if(!opened){
+        try{ opened = !!window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${encSubj}&body=${encBody}`, '_blank'); }catch(_){}
+      }
+
+      // 4) Always copy to clipboard as a fail‑safe and inform the user
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(plain).finally(()=>{
+          alert((opened? 'Email compose opened (or attempted). ' : 'Popup blocked or no email handler. ') + 'The proposal text has been copied to your clipboard. If no window opened, paste into Gmail/Outlook manually.');
+        });
+      } else {
+        prompt('Copy the proposal text below and paste into your email:', plain);
+      }
+    }
+      let loaded=0, deadhead=0, gross=0;
+      perLane.forEach(L=>{ loaded+=L.loaded; deadhead+=L.deadhead; gross+=L.gross; });
+      const total = loaded+deadhead;
+      const rpmAll = gross/(total||1);
+      const rpmLoaded = gross/(loaded||1);
+
+      const base = $('#base').value.trim();
+      const flags = [];
+      if($('#includeStartDH').checked && base) flags.push('Base→first origin DH included');
+      if($('#returnToBase').checked && base) flags.push('Final DH back to Base included');
+
+      const lines = [];
+      lines.push('Proposed Lanes Summary');
+      if(base) lines.push('Base/Yard: '+base);
+      if(flags.length) lines.push('Notes: '+flags.join('; '));
+      lines.push('');
+      perLane.forEach(L=>{
+        const rpmLane = L.gross / (L.loaded+L.deadhead||1);
+        lines.push(`Lane ${L.index}: ${L.origin} → ${L.destination}`);
+        lines.push(`  Loaded: ${fmtMi(L.loaded)} mi | Deadhead: ${fmtMi(L.deadhead)} mi`);
+        lines.push(`  Rate: $${(L.rate||0).toFixed(2)}/ton × ${(L.tons||0).toFixed(1)} tons = ${fmtMoney(L.gross||0)}`);
+        lines.push(`  Lane RPM: $${rpmLane.toFixed(2)}`);
+        lines.push('');
+      });
+      lines.push(`TOTAL Loaded: ${fmtMi(loaded)} mi`);
+      lines.push(`TOTAL Deadhead: ${fmtMi(deadhead)} mi`);
+      lines.push(`TOTAL Miles: ${fmtMi(total)} mi`);
+      lines.push(`TOTAL Gross: ${fmtMoney(gross)}`);
+      lines.push(`Overall RPM (all miles): $${rpmAll.toFixed(2)}`);
+      lines.push(`Loaded‑only RPM: $${rpmLoaded.toFixed(2)}`);
+      lines.push('');
+      lines.push('Open in calculator: '+location.href);
+
+      const plain = lines.join('
+');
+      const subj = 'Lane Proposal – Map & RPM';
+      const mailto = `mailto:?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(plain)}`;
+
+      // Try opening default mail client first
+      let opened = false;
+      try {
+        window.location.href = mailto; // more reliable than window.open on some browsers/pop‑up blockers
+        opened = true;
+      } catch(_){}
+
+      // Always copy to clipboard as a fail‑safe
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(plain).then(()=>{
+          alert((opened? 'Email draft triggered. ' : '') + 'Proposal text copied to your clipboard in case the email client did not open.');
+        }).catch(()=>{
+          // last‑ditch: show prompt to copy manually
+          prompt('Copy the proposal text below:', plain);
+        });
+      } else {
+        // No clipboard API; show prompt to copy manually
+        prompt('Copy the proposal text below:', plain);
+      }
+    }
+      let loaded=0, deadhead=0, gross=0;
+      perLane.forEach(L=>{ loaded+=L.loaded; deadhead+=L.deadhead; gross+=L.gross; });
+      const total = loaded+deadhead;
+      const rpmAll = gross/(total||1);
+      const rpmLoaded = gross/(loaded||1);
+
+      const base = $('#base').value.trim();
+      const flags = [];
+      if($('#includeStartDH').checked && base) flags.push('Base→first origin DH included');
+      if($('#returnToBase').checked && base) flags.push('Final DH back to Base included');
+
+      const lines = [];
+      lines.push('Proposed Lanes Summary');
+      if(base) lines.push('Base/Yard: '+base);
+      if(flags.length) lines.push('Notes: '+flags.join('; '));
+      lines.push('');
+      perLane.forEach(L=>{
+        const rpmLane = L.gross / (L.loaded+L.deadhead||1);
+        lines.push(`Lane ${L.index}: ${L.origin} → ${L.destination}`);
+        lines.push(`  Loaded: ${fmtMi(L.loaded)} mi | Deadhead: ${fmtMi(L.deadhead)} mi`);
+        lines.push(`  Rate: $${(L.rate||0).toFixed(2)}/ton × ${(L.tons||0).toFixed(1)} tons = ${fmtMoney(L.gross||0)}`);
+        lines.push(`  Lane RPM: $${rpmLane.toFixed(2)}`);
+        lines.push('');
+      });
+      lines.push(`TOTAL Loaded: ${fmtMi(loaded)} mi`);
+      lines.push(`TOTAL Deadhead: ${fmtMi(deadhead)} mi`);
+      lines.push(`TOTAL Miles: ${fmtMi(total)} mi`);
+      lines.push(`TOTAL Gross: ${fmtMoney(gross)}`);
+      lines.push(`Overall RPM (all miles): $${rpmAll.toFixed(2)}`);
+      lines.push(`Loaded‑only RPM: $${rpmLoaded.toFixed(2)}`);
+      lines.push('');
+      lines.push('Open in calculator: '+location.href);
+
       const body = encodeURIComponent(lines.join('\n'));
       const subj = encodeURIComponent('Lane Proposal – Map & RPM');
       const mailto = `mailto:?subject=${subj}&body=${body}`;
@@ -535,7 +655,7 @@
         (data.lanes||[]).forEach(addLane);
         if(!(data.lanes||[]).length) addLane();
         return true;
-      }catch(e){ return false; }  
+      }catch(e){ return false; }
     }
 
     function loadSample(){
