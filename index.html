@@ -443,62 +443,63 @@
     }
 
     function openProposal(){
-      if(!lastCompute){ alert('Calculate first, then open the proposal.'); return; }
-      const { perLane, finalDhMiles, base, includeStartDH, returnToBase, url } = lastCompute;
+  if(!lastCompute){ alert('Calculate first, then open the proposal.'); return; }
+  const { perLane, finalDhMiles, base, includeStartDH, returnToBase, url } = lastCompute;
 
-      let loaded=0, deadhead=0, gross=0;
-      perLane.forEach(L=>{ loaded+=L.loaded; deadhead+=L.deadhead; gross+=L.gross; });
-      deadhead += finalDhMiles;
-      const total = loaded + deadhead;
-      const rpmAll = gross / (total || 1);
-      const rpmLoaded = gross / (loaded || 1);
+  let loaded=0, deadhead=0, gross=0;
+  perLane.forEach(L=>{ loaded+=L.loaded; deadhead+=L.deadhead; gross+=L.gross; });
+  deadhead += finalDhMiles;
+  const total = loaded + deadhead;
+  const rpmAll = gross / (total || 1);
+  const rpmLoaded = gross / (loaded || 1);
 
-      const flags = [];
-      if(includeStartDH && base) flags.push('Base→first origin DH included');
-      if(returnToBase && base) flags.push('Final DH back to Base included');
+  const flags = [];
+  if(includeStartDH && base) flags.push('Base→first origin DH included');
+  if(returnToBase && base)   flags.push('Final DH back to Base included');
 
-      const pt = [];
-      pt.push('Proposed Lanes Summary');
-      if(base) pt.push('Base/Yard: '+base);
-      if(flags.length) pt.push('Notes: '+flags.join('; '));
-      pt.push('');
-      perLane.forEach(L=>{
-        const rpmLane = L.gross / (L.loaded+L.deadhead||1);
-        pt.push(`Lane ${L.index}: ${L.origin} → ${L.destination}`);
-        pt.push(`  Loaded: ${fmtMi(L.loaded)} mi | Deadhead: ${fmtMi(L.deadhead)} mi`);
-        pt.push(`  Rate: $${(L.rate||0).toFixed(2)}/ton × ${(L.tons||0).toFixed(1)} tons = ${fmtMoney(L.gross||0)}`);
-        pt.push(`  Lane RPM: $${rpmLane.toFixed(2)}`);
-        pt.push('');
-      });
-      pt.push(`TOTAL Loaded: ${fmtMi(loaded)} mi`);
-      pt.push(`TOTAL Deadhead: ${fmtMi(deadhead)} mi`);
-      pt.push(`TOTAL Miles: ${fmtMi(total)} mi`);
-      pt.push(`TOTAL Gross: ${fmtMoney(gross)}`);
-      pt.push(`Overall RPM (all miles): $${rpmAll.toFixed(2)}`);
-      pt.push(`Loaded-only RPM: $${rpmLoaded.toFixed(2)}`);
-      pt.push('');
-      pt.push('Open in calculator: '+url);
-      const plainText = pt.join('\n');
+  const pt = [];
+  pt.push('Proposed Lanes Summary');
+  if(base) pt.push('Base/Yard: '+base);
+  if(flags.length) pt.push('Notes: '+flags.join('; '));
+  pt.push('');
+  perLane.forEach(L=>{
+    const rpmLane = L.gross / (L.loaded+L.deadhead||1);
+    pt.push(`Lane ${L.index}: ${L.origin} → ${L.destination}`);
+    pt.push(`  Loaded: ${fmtMi(L.loaded)} mi | Deadhead: ${fmtMi(L.deadhead)} mi`);
+    pt.push(`  Rate: $${(L.rate||0).toFixed(2)}/ton × ${(L.tons||0).toFixed(1)} tons = ${fmtMoney(L.gross||0)}`);
+    pt.push(`  Lane RPM: $${rpmLane.toFixed(2)}`);
+    pt.push('');
+  });
+  pt.push(`TOTAL Loaded: ${fmtMi(loaded)} mi`);
+  pt.push(`TOTAL Deadhead: ${fmtMi(deadhead)} mi`);
+  pt.push(`TOTAL Miles: ${fmtMi(total)} mi`);
+  pt.push(`TOTAL Gross: ${fmtMoney(gross)}`);
+  pt.push(`Overall RPM (all miles): $${rpmAll.toFixed(2)}`);
+  pt.push(`Loaded-only RPM: $${rpmLoaded.toFixed(2)}`);
+  pt.push('');
+  pt.push('Open in calculator: '+url);
+  const plainText = pt.join('\n');
 
-      const esc = s => (s??'').toString().replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  const esc = s => (s??'').toString().replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  const rowsHtml = perLane.map(L=>{
+    const rpmLane = L.gross / (L.loaded+L.deadhead||1);
+    return `<tr>
+      <td style="text-align:center">${L.index}</td>
+      <td>${esc(L.origin)} → ${esc(L.destination)}</td>
+      <td style="text-align:right">${fmtMi(L.loaded)}</td>
+      <td style="text-align:right">${fmtMi(L.deadhead)}</td>
+      <td style="text-align:right">${L.rate?Number(L.rate).toFixed(2):''}</td>
+      <td style="text-align:right">${L.tons?Number(L.tons).toFixed(1):''}</td>
+      <td style="text-align:right">${fmtMoney(L.gross||0)}</td>
+      <td style="text-align:right">${rpmLane?rpmLane.toFixed(2):''}</td>
+    </tr>`;
+  }).join('');
 
-      const rowsHtml = perLane.map(L=>{
-        const rpmLane = L.gross / (L.loaded+L.deadhead||1);
-        return `<tr>
-          <td style="text-align:center">${L.index}</td>
-          <td>${esc(L.origin)} → ${esc(L.destination)}</td>
-          <td style="text-align:right">${fmtMi(L.loaded)}</td>
-          <td style="text-align:right">${fmtMi(L.deadhead)}</td>
-          <td style="text-align:right">${L.rate?Number(L.rate).toFixed(2):''}</td>
-          <td style="text-align:right">${L.tons?Number(L.tons).toFixed(1):''}</td>
-          <td style="text-align:right">${fmtMoney(L.gross||0)}</td>
-          <td style="text-align:right">${rpmLane?rpmLane.toFixed(2):''}</td>
-        </tr>`;
-      }).join('');
-
-      const html = `<!doctype html>
+  // Build final HTML (note the escaped closing script tag)
+  const html = `<!doctype html>
 <html><head><meta charset="utf-8" />
   <title>Lane Proposal – FarmPro</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     body{font:14px/1.45 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0b1320;margin:24px}
     h1{margin:0 0 6px;font-size:20px}
@@ -523,13 +524,11 @@
   <div class="actions">
     <button id="copy">Copy Plain Text</button>
     <button id="print" class="secondary">Print / Save PDF</button>
-    <a class="button" href="${esc(url)}" target="_blank"><button class="secondary">Open Calculator</button></a>
+    <a class="button" href="${esc(url)}" target="_blank" rel="noopener"><button class="secondary">Open Calculator</button></a>
   </div>
   <table>
     <thead>
-      <tr>
-        <th>#</th><th>Origin → Destination</th><th>Loaded mi</th><th>Deadhead mi</th><th>$ / ton</th><th>Tons</th><th>Gross</th><th>Lane RPM</th>
-      </tr>
+      <tr><th>#</th><th>Origin → Destination</th><th>Loaded mi</th><th>Deadhead mi</th><th>$ / ton</th><th>Tons</th><th>Gross</th><th>Lane RPM</th></tr>
     </thead>
     <tbody>${rowsHtml}</tbody>
     <tfoot>
@@ -567,10 +566,22 @@
   <\/script>
 </body></html>`;
 
-      const w = window.open('', '_blank');
-      if(!w){ alert('Popup blocked. Please allow popups for this site.'); return; }
-      w.document.open(); w.document.write(html); w.document.close();
-    }
+  // Open via a Blob URL (works better on iOS/Android; avoids document.write)
+  const blob = new Blob([html], { type: 'text/html' });
+  const blobUrl = URL.createObjectURL(blob);
+  const w = window.open(blobUrl, '_blank', 'noopener');  // open immediately on click gesture
+  if(!w){
+    // Fallback: create a temporary link if the popup was blocked
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.download = 'proposal.html';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  // Revoke later to avoid cutting off the new tab load on Safari
+  setTimeout(()=>URL.revokeObjectURL(blobUrl), 60000);
+}
 
     function collectPerLaneFromTable(){
       const rows = Array.from($('#resultsTable tbody').rows);
