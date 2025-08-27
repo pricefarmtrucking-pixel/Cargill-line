@@ -45,11 +45,6 @@
     .legend{display:flex;gap:8px;align-items:center}
     .swatch{width:18px;height:3px;border-radius:2px}
   </style>
-  <!--
-    SETUP
-    1) Replace AIzaSyAX9GFUEGbzuUx3KefbZw9_a0_eDOiNFf0 at the bottom with your key (Maps JavaScript + Places enabled).
-    2) Open this file in a browser. Nothing else required.
-  -->
 </head>
 <body>
   <div class="app">
@@ -84,9 +79,7 @@
 
       <div class="section">
         <div class="row" style="justify-content:space-between;align-items:center">
-          <div>
-            <span class="tag">Results</span>
-          </div>
+          <div><span class="tag">Results</span></div>
           <div class="row">
             <button class="btn" id="exportCsv">Export CSV</button>
             <button class="btn" id="emailBtn">Open Proposal</button>
@@ -126,7 +119,7 @@
     </main>
   </div>
 
-  <!-- Lane card template with drag/drop + move buttons -->
+  <!-- Lane template with drag/drop + ▲/▼ -->
   <template id="laneTmpl">
     <div class="lane" draggable="true">
       <div class="row" style="justify-content:space-between;align-items:center">
@@ -163,78 +156,89 @@
   <script>
     let map, bounds, dirService;
     const polylines = [];
-    let lastCompute = null; // store last per-lane results + totals + finalDhMiles for proposal
+    let lastCompute = null;
 
     const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
-    const $ = (sel, ctx=document) => ctx.querySelector(sel);
-
+    const $  = (sel, ctx=document) => ctx.querySelector(sel);
     const metersToMiles = m => m / 1609.344;
-    const fmtMi = n => (Math.round(n * 10) / 10).toLocaleString(undefined,{minimumFractionDigits:1, maximumFractionDigits:1});
+    const fmtMi    = n => (Math.round(n * 10) / 10).toLocaleString(undefined,{minimumFractionDigits:1, maximumFractionDigits:1});
     const fmtMoney = n => n.toLocaleString(undefined,{style:'currency',currency:'USD'});
 
-    function initMap(){
-      map = new google.maps.Map(document.getElementById('map'), {
-        center:{lat:41.878, lng:-93.097}, zoom:6, mapId:'fde12c0d9b0a8c86'
-      });
-      bounds = new google.maps.LatLngBounds();
-      dirService = new google.maps.DirectionsService();
+    // --- UI should work even if Google Maps fails to load
+    document.addEventListener('DOMContentLoaded', setupUI);
 
-      // Autocomplete for Base input (safe guard if Places not available)
-      const baseInput = document.getElementById('base');
-      try { new google.maps.places.Autocomplete(baseInput, { fields:['geometry','name'], types:['geocode'] }); } catch(_) {}
-
-      // Restore state
-      loadFromURL() || loadFromStorage();
-
-      $('#addLane').addEventListener('click', addLane);
+    function setupUI(){
+      // Buttons
+      $('#addLane').addEventListener('click', ()=>addLane());
       $('#calc').addEventListener('click', calculateAndMap);
       $('#sample').addEventListener('click', loadSample);
       $('#clearAll').addEventListener('click', clearAll);
       $('#exportCsv').addEventListener('click', exportCSV);
       $('#emailBtn').addEventListener('click', openProposal);
-    }
 
-    function addLane(data={}){
-      const wrap = document.getElementById('lanes');
-      const tmpl = document.getElementById('laneTmpl');
-      const node = tmpl.content.firstElementChild.cloneNode(true);
-      wrap.appendChild(node);
-      refreshLaneIndices();
-
-      // Attach autocomplete (tolerate Places off)
-      const o = node.querySelector('.origin');
-      const d = node.querySelector('.destination');
-      try{ new google.maps.places.Autocomplete(o,{fields:['geometry','name'], types:['geocode']}); }catch(_){}
-      try{ new google.maps.places.Autocomplete(d,{fields:['geometry','name'], types:['geocode']}); }catch(_){}
-
-      // Prefill if provided
-      if(data.origin) o.value = data.origin;
-      if(data.destination) d.value = data.destination;
-      if(data.rate!=null) node.querySelector('.rate').value = data.rate;
-      if(data.tons!=null) node.querySelector('.tons').value = data.tons;
-
-      // Remove
-      node.querySelector('.del').addEventListener('click', ()=>{
-        node.remove(); refreshLaneIndices(); persist();
-      });
-
-      // Move up/down
-      node.querySelector('.moveUp').addEventListener('click', ()=> moveLane(node,-1));
-      node.querySelector('.moveDown').addEventListener('click', ()=> moveLane(node,+1));
-
-      // Drag & drop
-      node.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain','drag'); node.classList.add('dragging'); });
-      node.addEventListener('dragend', ()=>{ node.classList.remove('dragging'); persist(); refreshLaneIndices(); });
+      // Drag container handler (only once)
+      const wrap = $('#lanes');
       wrap.addEventListener('dragover', e=>{
         e.preventDefault();
         const dragging = document.querySelector('.lane.dragging');
         if(!dragging) return;
         const siblings = [...wrap.querySelectorAll('.lane:not(.dragging)')];
-        let next = siblings.find(sib => e.clientY <= sib.getBoundingClientRect().top + sib.offsetHeight/2);
+        const next = siblings.find(sib => e.clientY <= sib.getBoundingClientRect().top + sib.offsetHeight/2);
         wrap.insertBefore(dragging, next || null);
       });
 
-      // Persist on change
+      // Restore state
+      if(!loadFromURL()) loadFromStorage();
+      if(!$('#lanes').children.length) addLane();
+    }
+
+    function safeAutocomplete(input){
+      try{
+        if (google?.maps?.places?.Autocomplete) {
+          new google.maps.places.Autocomplete(input, { fields:['geometry','name'], types:['geocode'] });
+        }
+      } catch(_){}
+    }
+
+    // --- Maps callback (may run after UI is ready)
+    function initMap(){
+      try{
+        map = new google.maps.Map(document.getElementById('map'), {
+          center:{lat:41.878, lng:-93.097}, zoom:6, mapId:'fde12c0d9b0a8c86'
+        });
+        bounds = new google.maps.LatLngBounds();
+        dirService = new google.maps.DirectionsService();
+        safeAutocomplete($('#base'));
+      }catch(e){
+        console.warn('Maps init failed:', e);
+      }
+    }
+
+    function addLane(data={}){
+      const wrap = $('#lanes');
+      const tmpl = $('#laneTmpl');
+      const node = tmpl.content.firstElementChild.cloneNode(true);
+      wrap.appendChild(node);
+      refreshLaneIndices();
+
+      const o = node.querySelector('.origin');
+      const d = node.querySelector('.destination');
+      safeAutocomplete(o); safeAutocomplete(d);
+
+      if(data.origin) o.value = data.origin;
+      if(data.destination) d.value = data.destination;
+      if(data.rate!=null) node.querySelector('.rate').value = data.rate;
+      if(data.tons!=null) node.querySelector('.tons').value = data.tons;
+
+      node.querySelector('.del').addEventListener('click', ()=>{
+        node.remove(); refreshLaneIndices(); persist();
+      });
+      node.querySelector('.moveUp').addEventListener('click', ()=> moveLane(node,-1));
+      node.querySelector('.moveDown').addEventListener('click', ()=> moveLane(node,+1));
+
+      node.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain','drag'); node.classList.add('dragging'); });
+      node.addEventListener('dragend',   ()=>{ node.classList.remove('dragging'); persist(); refreshLaneIndices(); });
+
       $$('.origin,.destination,.rate,.tons', node).forEach(inp=>{
         inp.addEventListener('change', persist);
         inp.addEventListener('blur', persist);
@@ -243,13 +247,16 @@
     }
 
     function moveLane(node, dir){
-      const wrap = document.getElementById('lanes');
+      const wrap = $('#lanes');
       const lanes = $$('#lanes .lane');
       const idx = lanes.indexOf(node);
       const newIdx = idx + dir;
       if(newIdx < 0 || newIdx >= lanes.length) return;
-      if(dir < 0){ wrap.insertBefore(node, lanes[newIdx]); }
-      else { wrap.insertBefore(lanes[newIdx], node); wrap.insertBefore(node, lanes[newIdx]); }
+      if(dir < 0){
+        wrap.insertBefore(node, lanes[newIdx]); // move up: before the target
+      } else {
+        wrap.insertBefore(node, lanes[newIdx].nextSibling); // move down: after the target
+      }
       refreshLaneIndices(); persist();
     }
 
@@ -260,28 +267,30 @@
     }
 
     function clearMap(){
-      polylines.forEach(p=>p.setMap(null));
+      polylines.forEach(p=>p.setMap && p.setMap(null));
       polylines.length = 0;
       bounds = new google.maps.LatLngBounds();
     }
 
     async function routeMiles(origin, destination){
       return new Promise((resolve, reject)=>{
-        dirService.route({
-          origin, destination, travelMode: google.maps.TravelMode.DRIVING, region:'US'
-        }, (res, status)=>{
-          if(status === 'OK'){
-            const leg = res.routes[0].legs[0];
-            const path = res.routes[0].overview_path;
-            resolve({ miles: metersToMiles(leg.distance.value), path });
-          } else {
-            reject(new Error(status+': '+origin+' → '+destination));
+        if(!dirService){ reject(new Error('Map not initialized')); return; }
+        dirService.route({ origin, destination, travelMode:'DRIVING', region:'US' },
+          (res, status)=>{
+            if(status === 'OK'){
+              const leg = res.routes[0].legs[0];
+              const path = res.routes[0].overview_path;
+              resolve({ miles: metersToMiles(leg.distance.value), path });
+            } else {
+              reject(new Error(status+': '+origin+' → '+destination));
+            }
           }
-        });
+        );
       });
     }
 
     function drawPath(path, {color='#1a73e8', weight=4, dash=false}={}){
+      if(!map) return;
       const polyline = new google.maps.Polyline({
         map, path, strokeColor: color, strokeOpacity: 1, strokeWeight: weight,
         icons: dash ? [{icon:{path:'M 0,-1 0,1', strokeOpacity:1, scale:2}, offset:'0', repeat:'22px'}] : undefined
@@ -292,66 +301,58 @@
     }
 
     async function calculateAndMap(){
-      clearMap();
       const lanes = readLanes();
       if(lanes.length===0){ alert('Add at least one lane'); return; }
+      if(!dirService){ alert('Map not ready yet. Give it a second or check your API key restrictions.'); return; }
+
+      clearMap();
 
       const base = $('#base').value.trim();
       const includeStartDH = $('#includeStartDH').checked && base;
-      const returnToBase = $('#returnToBase').checked && base;
+      const returnToBase   = $('#returnToBase').checked && base;
 
       let totals = { loaded:0, deadhead:0, gross:0 };
       const perLane = [];
-
       let prevDest = null;
 
-      // optional deadhead from base → first origin
+      // optional deadhead base → first origin
       if(includeStartDH){
         try{
           const {miles, path} = await routeMiles(base, lanes[0].origin);
-          totals.deadhead += miles;
-          drawPath(path, {color:'#808080', weight:4, dash:true});
+          totals.deadhead += miles; drawPath(path, {color:'#808080', weight:4, dash:true});
           prevDest = lanes[0].origin;
         }catch(e){ console.warn(e); }
       }
 
-      // Iterate lanes
+      // iterate lanes
       for(let i=0;i<lanes.length;i++){
         const L = lanes[i];
 
-        // deadhead from previous destination to this origin
+        // deadhead previous dest → this origin
         if(i>0 || (!includeStartDH && i===0 && prevDest)){
           const from = perLane.length ? perLane[perLane.length-1].destination : prevDest;
           if(from){
             try{
               const {miles, path} = await routeMiles(from, L.origin);
-              totals.deadhead += miles;
-              drawPath(path, {color:'#808080', weight:4, dash:true});
+              totals.deadhead += miles; drawPath(path, {color:'#808080', weight:4, dash:true});
             }catch(e){ console.warn(e); }
           }
         }
 
-        // loaded miles for this lane
+        // loaded miles
         try{
           const {miles, path} = await routeMiles(L.origin, L.destination);
-          totals.loaded += miles;
-          drawPath(path, {color:'#1a73e8', weight:5});
+          totals.loaded += miles; drawPath(path, {color:'#1a73e8', weight:5});
           const gross = (Number(L.rate)||0) * (Number(L.tons)||0);
           totals.gross += gross;
           perLane.push({
-            index:i+1,
-            origin:L.origin,
-            destination:L.destination,
-            loaded:miles,
-            deadhead:0, // computed below
-            rate:Number(L.rate)||0,
-            tons:Number(L.tons)||0,
-            gross
+            index:i+1, origin:L.origin, destination:L.destination,
+            loaded:miles, deadhead:0, rate:Number(L.rate)||0, tons:Number(L.tons)||0, gross
           });
         }catch(e){ alert('Route failed: '+e.message); console.error(e); return; }
       }
 
-      // Per-lane deadhead (prev dest → this origin), plus optional base→first origin
+      // per-lane deadhead (prev dest → this origin) + optional base → first origin
       perLane.forEach(pl=>pl.deadhead=0);
       const dhPairs=[];
       if(includeStartDH && perLane[0]) dhPairs.push([base, perLane[0].origin, 0]);
@@ -366,15 +367,11 @@
         try{
           const last = perLane[perLane.length-1];
           const {miles, path} = await routeMiles(last.destination, base);
-          finalDhMiles = miles;
-          totals.deadhead += miles;
-          drawPath(path, {color:'#808080', weight:4, dash:true});
+          finalDhMiles = miles; totals.deadhead += miles; drawPath(path, {color:'#808080', weight:4, dash:true});
         }catch(e){ console.warn(e); }
       }
 
-      // Save for proposal view
       lastCompute = { perLane, totals, finalDhMiles, base, includeStartDH, returnToBase, url: location.href };
-
       renderResults(perLane, totals, { finalDhMiles });
       persist();
       updateShareURL();
@@ -398,7 +395,6 @@
       const tbody = table.querySelector('tbody');
       tbody.innerHTML = '';
 
-      // totals (from per-lane rows) + final return-to-base DH
       let loaded = 0, deadhead = 0, gross = 0;
       perLane.forEach(L=>{ loaded += L.loaded; deadhead += L.deadhead; gross += L.gross; });
       deadhead += finalDhMiles;
@@ -425,7 +421,6 @@
       const totalMiles = loaded + deadhead;
       const rpm = gross / (totalMiles || 1);
       $('#tRPM').textContent = rpm.toFixed(2);
-
       table.hidden = false;
 
       const note = document.querySelector('.note');
@@ -459,13 +454,11 @@
       URL.revokeObjectURL(url);
     }
 
-    // Open a proposal page in a new tab for easy copy/paste (replaces email)
     function openProposal(){
       if(!lastCompute){ alert('Calculate first, then open the proposal.'); return; }
-      const { perLane, totals, finalDhMiles, base, includeStartDH, returnToBase, url } = lastCompute;
+      const { perLane, finalDhMiles, base, includeStartDH, returnToBase, url } = lastCompute;
 
-      // Totals from lastCompute (already includes finalDh in totals.deadhead)
-      let loaded = 0, deadhead = 0, gross = 0;
+      let loaded=0, deadhead=0, gross=0;
       perLane.forEach(L=>{ loaded+=L.loaded; deadhead+=L.deadhead; gross+=L.gross; });
       deadhead += finalDhMiles;
       const total = loaded + deadhead;
@@ -476,7 +469,6 @@
       if(includeStartDH && base) flags.push('Base→first origin DH included');
       if(returnToBase && base) flags.push('Final DH back to Base included');
 
-      // Plain text block
       const pt = [];
       pt.push('Proposed Lanes Summary');
       if(base) pt.push('Base/Yard: '+base);
@@ -516,7 +508,7 @@
         </tr>`;
       }).join('');
 
-      const proposalHtml = `<!doctype html>
+      const html = `<!doctype html>
 <html><head><meta charset="utf-8" />
   <title>Lane Proposal – FarmPro</title>
   <style>
@@ -543,7 +535,7 @@
   <div class="actions">
     <button id="copy">Copy Plain Text</button>
     <button id="print" class="secondary">Print / Save PDF</button>
-    <a class="button secondary" href="${esc(url)}" target="_blank"><button class="secondary">Open Calculator</button></a>
+    <a class="button" href="${esc(url)}" target="_blank"><button class="secondary">Open Calculator</button></a>
   </div>
   <table>
     <thead>
@@ -589,7 +581,7 @@
 
       const w = window.open('', '_blank');
       if(!w){ alert('Popup blocked. Please allow popups for this site.'); return; }
-      w.document.open(); w.document.write(proposalHtml); w.document.close();
+      w.document.open(); w.document.write(html); w.document.close();
     }
 
     function collectPerLaneFromTable(){
@@ -612,7 +604,7 @@
     }
 
     function escapeHtml(str){
-      return str.replace(/[&<>"]/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s]));
+      return str.replace(/[&<>"]/g, s=>({"&":"&amp;","<":"&lt;","\">":"&gt;","\"":"&quot;"}[s]));
     }
 
     function persist(){
