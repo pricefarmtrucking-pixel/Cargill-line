@@ -89,7 +89,7 @@
           </div>
           <div class="row">
             <button class="btn" id="exportCsv">Export CSV</button>
-            <button class="btn" id="emailBtn">Generate Email</button>
+            <button class="btn" id="emailBtn">Open Proposal</button>
           </div>
         </div>
         <table id="resultsTable" hidden>
@@ -117,7 +117,7 @@
             </tr>
           </tfoot>
         </table>
-        <div class="note">Overall RPM = Total Gross ÷ (Loaded + Deadhead). Also shown in email export with a loaded‑only RPM.</div>
+        <div class="note">Overall RPM = Total Gross ÷ (Loaded + Deadhead). Also shown on the proposal page with a loaded‑only RPM.</div>
       </div>
     </aside>
 
@@ -127,10 +127,14 @@
   </div>
 
   <template id="laneTmpl">
-    <div class="lane">
+    <div class="lane" draggable="true">
       <div class="row" style="justify-content:space-between;align-items:center">
         <h3>Lane <span class="laneIndex"></span> <small class="muted">(Origin → Destination)</small></h3>
-        <button class="del" title="Remove lane">Remove</button>
+        <div class="row">
+          <button class="del" title="Remove lane">Remove</button>
+          <button class="del moveUp" title="Move up">▲</button>
+          <button class="del moveDown" title="Move down">▼</button>
+        </div>
       </div>
       <div class="row">
         <div style="flex:1">
@@ -198,8 +202,8 @@
       // Attach autocomplete
       const o = node.querySelector('.origin');
       const d = node.querySelector('.destination');
-      new google.maps.places.Autocomplete(o,{fields:['geometry','name'], types:['geocode']});
-      new google.maps.places.Autocomplete(d,{fields:['geometry','name'], types:['geocode']});
+      try{ new google.maps.places.Autocomplete(o,{fields:['geometry','name'], types:['geocode']}); }catch(_){}
+      try{ new google.maps.places.Autocomplete(d,{fields:['geometry','name'], types:['geocode']}); }catch(_){}
 
       // Prefill if provided
       if(data.origin) o.value = data.origin;
@@ -214,11 +218,38 @@
         persist();
       });
 
+      // Move up/down handlers
+      node.querySelector('.moveUp').addEventListener('click', ()=>{ moveLane(node, -1); });
+      node.querySelector('.moveDown').addEventListener('click', ()=>{ moveLane(node, +1); });
+
+      // Drag & drop lightweight support
+      node.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain','drag'); node.classList.add('dragging'); });
+      node.addEventListener('dragend', ()=>{ node.classList.remove('dragging'); persist(); refreshLaneIndices(); });
+      wrap.addEventListener('dragover', e=>{
+        e.preventDefault();
+        const dragging = document.querySelector('.lane.dragging');
+        const siblings = [...wrap.querySelectorAll('.lane:not(.dragging)')];
+        let next = siblings.find(sib=> e.clientY <= sib.getBoundingClientRect().top + sib.offsetHeight/2 );
+        wrap.insertBefore(dragging, next || null);
+      });
+
       // Persist on change
       $$('.origin,.destination,.rate,.tons', node).forEach(inp=>{
         inp.addEventListener('change', persist);
         inp.addEventListener('blur', persist);
       });
+      persist();
+    }
+
+    function moveLane(node, dir){
+      const wrap = document.getElementById('lanes');
+      const lanes = $$('#lanes .lane');
+      const idx = lanes.indexOf(node);
+      const newIdx = idx + dir;
+      if(newIdx < 0 || newIdx >= lanes.length) return;
+      if(dir < 0){ wrap.insertBefore(node, lanes[newIdx]); }
+      else { wrap.insertBefore(lanes[newIdx], node); wrap.insertBefore(node, lanes[newIdx]); }
+      refreshLaneIndices();
       persist();
     }
 
@@ -312,7 +343,7 @@
             origin:L.origin,
             destination:L.destination,
             loaded:miles,
-            deadhead:0, // will compute above where applicable per lane row
+            deadhead:0, // will compute per-lane deadhead below
             rate:Number(L.rate)||0,
             tons:Number(L.tons)||0,
             gross
@@ -320,33 +351,31 @@
         }catch(e){ alert('Route failed: '+e.message); console.error(e); return; }
       }
 
-      // Compute per-lane deadhead miles (estimated as prev dest → this origin)
-      // Re-run just for numbers using the same logic as drawn above
+      // Compute per-lane deadhead miles
       perLane.forEach(pl=>pl.deadhead=0);
       const dhPromises=[];
       const dhPairs=[];
-      // start deadhead from base → first origin
       if(includeStartDH){ dhPairs.push([base, perLane[0].origin, 0]); }
-      for(let i=1;i<perLane.length;i++){
-        dhPairs.push([perLane[i-1].destination, perLane[i].origin, i]);
-      }
+      for(let i=1;i<perLane.length;i++) dhPairs.push([perLane[i-1].destination, perLane[i].origin, i]);
       for(const [a,b,idx] of dhPairs){
         dhPromises.push(routeMiles(a,b).then(r=>({idx, miles:r.miles})).catch(()=>({idx, miles:0})));
       }
       const dhRes = await Promise.all(dhPromises);
       dhRes.forEach(({idx,miles})=>{ if(idx>=0) perLane[idx].deadhead += miles; });
-      
-      // final deadhead back to base
+
+      // final deadhead back to base (track separately so totals include it)
+      let finalDhMiles = 0;
       if(returnToBase){
         try{
           const last = perLane[perLane.length-1];
           const {miles, path} = await routeMiles(last.destination, base);
+          finalDhMiles = miles;
           totals.deadhead += miles;
           drawPath(path, {color:'#808080', weight:4, dash:true});
         }catch(e){ console.warn(e); }
       }
 
-      renderResults(perLane, totals);
+      renderResults(perLane, totals, { finalDhMiles });
       persist();
       updateShareURL();
     }
@@ -363,14 +392,16 @@
       return list;
     }
 
-    function renderResults(perLane, totals){
+    function renderResults(perLane, totals, opts={}){
+      const { finalDhMiles=0 } = opts;
       const table = $('#resultsTable');
       const tbody = table.querySelector('tbody');
       tbody.innerHTML = '';
 
-      // totals (recompute deadhead from perLane rows + any start DH we added to lane 0)
+      // totals (recompute from per-lane rows, then add final return-to-base DH)
       let loaded = 0, deadhead = 0, gross = 0;
       perLane.forEach(L=>{ loaded += L.loaded; deadhead += L.deadhead; gross += L.gross; });
+      deadhead += finalDhMiles; // include the final return-to-base segment
 
       perLane.forEach(L=>{
         const tr = document.createElement('tr');
@@ -396,6 +427,14 @@
       $('#tRPM').textContent = rpm.toFixed(2);
 
       table.hidden = false;
+
+      // add a small note about return-to-base if present
+      const note = document.querySelector('.note');
+      if(finalDhMiles>0){
+        note.textContent = `Overall RPM = Total Gross ÷ (Loaded + Deadhead). Also shown on the proposal page with a loaded‑only RPM. Includes ${fmtMi(finalDhMiles)} mi return‑to‑base deadhead.`;
+      } else {
+        note.textContent = 'Overall RPM = Total Gross ÷ (Loaded + Deadhead). Also shown on the proposal page with a loaded‑only RPM.';
+      }
     }
 
     function exportCSV(){
@@ -424,17 +463,20 @@
     function generateEmail(){
       const perLane = collectPerLaneFromTable();
       if(!perLane.length){ alert('No results yet. Click Calculate & Map first.'); return; }
+
+      // Totals
       let loaded=0, deadhead=0, gross=0;
       perLane.forEach(L=>{ loaded+=L.loaded; deadhead+=L.deadhead; gross+=L.gross; });
-      const total = loaded+deadhead;
-      const rpmAll = gross/(total||1);
-      const rpmLoaded = gross/(loaded||1);
+      const total = loaded + deadhead;
+      const rpmAll = gross / (total || 1);
+      const rpmLoaded = gross / (loaded || 1);
 
       const base = $('#base').value.trim();
       const flags = [];
       if($('#includeStartDH').checked && base) flags.push('Base→first origin DH included');
       if($('#returnToBase').checked && base) flags.push('Final DH back to Base included');
 
+      // Build plain text for easy copy/paste
       const lines = [];
       lines.push('Proposed Lanes Summary');
       if(base) lines.push('Base/Yard: '+base);
@@ -453,38 +495,99 @@
       lines.push(`TOTAL Miles: ${fmtMi(total)} mi`);
       lines.push(`TOTAL Gross: ${fmtMoney(gross)}`);
       lines.push(`Overall RPM (all miles): $${rpmAll.toFixed(2)}`);
-      lines.push(`Loaded‑only RPM: $${rpmLoaded.toFixed(2)}`);
+      lines.push(`Loaded-only RPM: $${rpmLoaded.toFixed(2)}`);
       lines.push('');
       lines.push('Open in calculator: '+location.href);
-
-      const plain = lines.join('
+      const plainText = lines.join('
 ');
-      const subj = 'Lane Proposal – Map & RPM';
-      const encSubj = encodeURIComponent(subj);
-      const encBody = encodeURIComponent(plain);
 
-      // 1) Try default mail client via mailto
-      let opened = false;
-      try{ opened = !!window.open(`mailto:?subject=${encSubj}&body=${encBody}`, '_self'); }catch(_){}
+      // Build a clean HTML proposal page
+      const esc = s => s.replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]||c));
+      const rowsHtml = perLane.map(L=>{
+        const rpmLane = L.gross / (L.loaded+L.deadhead||1);
+        return `<tr>
+          <td style="text-align:center">${L.index}</td>
+          <td>${esc(L.origin)} → ${esc(L.destination)}</td>
+          <td style="text-align:right">${fmtMi(L.loaded)}</td>
+          <td style="text-align:right">${fmtMi(L.deadhead)}</td>
+          <td style="text-align:right">${L.rate?Number(L.rate).toFixed(2):''}</td>
+          <td style="text-align:right">${L.tons?Number(L.tons).toFixed(1):''}</td>
+          <td style="text-align:right">${fmtMoney(L.gross||0)}</td>
+          <td style="text-align:right">${rpmLane?rpmLane.toFixed(2):''}</td>
+        </tr>`;
+      }).join('');
 
-      // 2) Try Gmail web compose (most reliable on many setups)
-      if(!opened){
-        try{ opened = !!window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encSubj}&body=${encBody}`, '_blank'); }catch(_){}
-      }
+      const proposalHtml = `<!doctype html>
+<html><head><meta charset="utf-8" />
+  <title>Lane Proposal – FarmPro</title>
+  <style>
+    body{font:14px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0b1320;margin:24px}
+    h1{margin:0 0 4px;font-size:20px}
+    .muted{color:#586278}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px;border-bottom:1px solid #e5e9f2}
+    th{text-align:right;background:#f6f8fc}
+    th:first-child,td:first-child{text-align:center}
+    th:nth-child(2),td:nth-child(2){text-align:left}
+    tfoot td{font-weight:700}
+    .actions{margin:12px 0;display:flex;gap:8px;flex-wrap:wrap}
+    button{padding:8px 10px;border-radius:8px;border:1px solid #c8d1e0;background:#0d63ff;color:#fff;cursor:pointer}
+    button.secondary{background:#fff;color:#0b1320;border-color:#c8d1e0}
+    pre{white-space:pre-wrap;background:#f6f8fc;border:1px solid #e5e9f2;border-radius:8px;padding:10px;margin-top:12px}
+  </style>
+</head>
+<body>
+  <h1>Proposed Lanes Summary</h1>
+  ${base?`<div class="muted">Base/Yard: ${esc(base)}</div>`:''}
+  ${flags.length?`<div class="muted">Notes: ${esc(flags.join('; '))}</div>`:''}
+  <div class="actions">
+    <button id="copy">Copy Plain Text</button>
+    <button id="print" class="secondary">Print / Save PDF</button>
+    <a id="openCalc" class="secondary" href="${esc(location.href)}" target="_blank" style="text-decoration:none"><button class="secondary">Open Calculator</button></a>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Origin → Destination</th><th>Loaded mi</th><th>Deadhead mi</th><th>$ / ton</th><th>Tons</th><th>Gross</th><th>Lane RPM</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+    <tfoot>
+      <tr>
+        <td colspan="2">Totals</td>
+        <td style="text-align:right">${fmtMi(loaded)}</td>
+        <td style="text-align:right">${fmtMi(deadhead)}</td>
+        <td></td><td></td>
+        <td style="text-align:right">${fmtMoney(gross)}</td>
+        <td style="text-align:right">${(gross/(total||1)).toFixed(2)}</td>
+      </tr>
+    </tfoot>
+  </table>
+  <div style="margin-top:10px">Overall RPM (all miles): <b>$${rpmAll.toFixed(2)}</b> — Loaded‑only RPM: <b>$${rpmLoaded.toFixed(2)}</b></div>
+  <pre id="plain">${esc(plainText)}</pre>
+  <script>
+    (function(){
+      const copyBtn = document.getElementById('copy');
+      const printBtn = document.getElementById('print');
+      const text = document.getElementById('plain').textContent;
+      copyBtn.addEventListener('click', ()=>{
+        if(navigator.clipboard?.writeText){
+          navigator.clipboard.writeText(text).then(()=>alert('Copied to clipboard.'))
+            .catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();alert('Copied to clipboard.');});
+        } else {
+          const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();alert('Copied to clipboard.');
+        }
+      });
+      printBtn.addEventListener('click', ()=>window.print());
+    })();
+  </script>
+</body></html>`;
 
-      // 3) Try Outlook web compose
-      if(!opened){
-        try{ opened = !!window.open(`https://outlook.office.com/mail/deeplink/compose?subject=${encSubj}&body=${encBody}`, '_blank'); }catch(_){}
-      }
-
-      // 4) Always copy to clipboard as a fail‑safe and inform the user
-      if(navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(plain).finally(()=>{
-          alert((opened? 'Email compose opened (or attempted). ' : 'Popup blocked or no email handler. ') + 'The proposal text has been copied to your clipboard. If no window opened, paste into Gmail/Outlook manually.');
-        });
-      } else {
-        prompt('Copy the proposal text below and paste into your email:', plain);
-      }
+      const w = window.open('', '_blank');
+      if(!w){ alert('Popup blocked. Please allow popups for this site.'); return; }
+      w.document.open();
+      w.document.write(proposalHtml);
+      w.document.close();
     }
       let loaded=0, deadhead=0, gross=0;
       perLane.forEach(L=>{ loaded+=L.loaded; deadhead+=L.deadhead; gross+=L.gross; });
