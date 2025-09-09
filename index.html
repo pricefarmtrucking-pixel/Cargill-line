@@ -70,8 +70,7 @@
         <div class="controls">
           <button type="button" class="btn success" id="addLane">+ Add lane</button>
           <button type="button" class="btn primary" id="calc">Calculate & Map</button>
-          <!-- NEW: Optimizer button -->
-          <button type="button" class="btn ghost" id="optimize">Optimize Order (RPM)</button>
+          <button type="button" class="btn ghost" id="optimize">Optimize Order (min deadhead)</button>
           <button type="button" class="btn ghost" id="sample">Load sample</button>
           <button type="button" class="btn" id="clearAll">Clear</button>
         </div>
@@ -220,7 +219,6 @@
     function setupUI(){
       $('#addLane').addEventListener('click', ()=>addLane());
       $('#calc').addEventListener('click', calculateAndMap);
-      // NEW: optimizer button
       $('#optimize').addEventListener('click', optimizeOrder);
       $('#sample').addEventListener('click', loadSample);
       $('#clearAll').addEventListener('click', clearAll);
@@ -256,7 +254,7 @@
         });
         bounds = new google.maps.LatLngBounds();
         dirService = new google.maps.DirectionsService();
-        // NEW: Distance Matrix service for optimizer
+        // Distance Matrix for optimizer
         window._fpDM = new google.maps.DistanceMatrixService();
         safeAutocomplete($('#base'));
       }catch(e){
@@ -349,6 +347,180 @@
       path.forEach(ll=>bounds.extend(ll));
       map.fitBounds(bounds, {top:24,right:24,bottom:24,left:24});
     }
+
+    // ================== OPTIMIZER: DM-first with Directions fallback ==================
+
+    // Memoized hop distance: Distance Matrix first, then Directions fallback
+    const _deadheadCache = new Map();  // key: "A|B" -> miles
+    async function deadheadMiles(a, b){
+      const key = a+'|'+b;
+      if(_deadheadCache.has(key)) return _deadheadCache.get(key);
+
+      // Try Distance Matrix
+      let miles = await new Promise((resolve)=>{
+        const dm = window._fpDM;
+        if(!dm){ resolve(Infinity); return; }
+        dm.getDistanceMatrix(
+          {origins:[a], destinations:[b], travelMode:'DRIVING', region:'US', unitSystem:google.maps.UnitSystem.IMPERIAL},
+          (res, status)=>{
+            if(status==='OK' && res?.rows?.[0]?.elements?.[0]?.status==='OK'){
+              resolve(res.rows[0].elements[0].distance.value / 1609.344);
+            } else {
+              resolve(Infinity);
+            }
+          }
+        );
+      });
+
+      // Fallback to DirectionsService
+      if(!isFinite(miles)){
+        try{
+          const r = await routeMiles(a, b);
+          miles = r.miles;
+          await new Promise(r=>setTimeout(r, 75)); // gentle pacing
+        }catch{
+          miles = Infinity;
+        }
+      }
+
+      _deadheadCache.set(key, miles);
+      return miles;
+    }
+
+    async function buildDeadheadMatrix(lanes, base, includeStart, returnTo){
+      const n = lanes.length;
+      const M = Array.from({length:n},()=>Array(n).fill(Infinity));
+
+      for(let i=0;i<n;i++){
+        for(let j=0;j<n;j++){
+          if(i===j) continue;
+          M[i][j] = await deadheadMiles(lanes[i].destination, lanes[j].origin);
+        }
+      }
+
+      const baseTo = Array(n).fill(Infinity);
+      const toBase = Array(n).fill(Infinity);
+
+      if(base && includeStart){
+        for(let j=0;j<n;j++) baseTo[j] = await deadheadMiles(base, lanes[j].origin);
+      }
+      if(base && returnTo){
+        for(let i=0;i<n;i++) toBase[i] = await deadheadMiles(lanes[i].destination, base);
+      }
+      return {M, baseTo, toBase};
+    }
+
+    function* permutations(arr){
+      const a = arr.slice();
+      const c = Array(a.length).fill(0);
+      yield a.slice();
+      let i = 0;
+      while(i < a.length){
+        if(c[i] < i){
+          if(i % 2 === 0){ [a[0], a[i]] = [a[i], a[0]]; }
+          else { [a[c[i]], a[i]] = [a[i], a[c[i]]]; }
+          yield a.slice();
+          c[i]++; i = 0;
+        } else {
+          c[i] = 0; i++;
+        }
+      }
+    }
+
+    function costOfOrder(order, M, baseTo, toBase){
+      let dead=0;
+      if(baseTo?.length){
+        const first = baseTo[order[0]];
+        if(!isFinite(first)) return Infinity;
+        dead += first;
+      }
+      for(let k=0;k<order.length-1;k++){
+        const c = M[order[k]][order[k+1]];
+        if(!isFinite(c)) return Infinity;
+        dead += c;
+      }
+      if(toBase?.length){
+        const back = toBase[order[order.length-1]];
+        if(!isFinite(back)) return Infinity;
+        dead += back;
+      }
+      return dead;
+    }
+
+    async function optimizeOrder(){
+      const lanes = readLanes();
+      if(lanes.length < 2){ toast('Add at least two lanes to optimize'); return; }
+
+      const base = $('#base').value.trim();
+      const includeStart = $('#includeStartDH').checked && !!base;
+      const returnTo     = $('#returnToBase').checked && !!base;
+
+      toast('Computing best order…');
+
+      try{
+        const {M, baseTo, toBase} = await buildDeadheadMatrix(lanes, base, includeStart, returnTo);
+        const n = lanes.length;
+        let bestOrder = [...Array(n).keys()];
+        let bestCost  = Infinity;
+
+        if(n <= 7){
+          for(const ord of permutations(bestOrder)){
+            const c = costOfOrder(ord, M, includeStart?baseTo:[], returnTo?toBase:[]);
+            if(c < bestCost){ bestCost = c; bestOrder = ord.slice(); }
+          }
+        } else {
+          // Greedy heuristic for larger n
+          let start = 0;
+          if(includeStart){
+            let min = Infinity;
+            for(let j=0;j<n;j++){ if(baseTo[j] < min){ min = baseTo[j]; start = j; } }
+          } else {
+            let bestAvg = Infinity;
+            for(let i=0;i<n;i++){
+              const vals = M[i].filter(v=>isFinite(v));
+              const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : Infinity;
+              if(avg < bestAvg){ bestAvg = avg; start = i; }
+            }
+          }
+          const used = Array(n).fill(false); used[start]=true;
+          const ord = [start];
+          for(let step=1; step<n; step++){
+            const i = ord[ord.length-1];
+            let bestJ=-1, best=Infinity;
+            for(let j=0;j<n;j++){
+              if(used[j]) continue;
+              const c = M[i][j];
+              if(c < best){ best=c; bestJ=j; }
+            }
+            if(bestJ === -1){ bestJ = used.indexOf(false); }
+            used[bestJ] = true; ord.push(bestJ);
+          }
+          bestOrder = ord;
+          bestCost = costOfOrder(ord, M, includeStart?baseTo:[], returnTo?toBase:[]);
+        }
+
+        if(!isFinite(bestCost)){
+          toast('Could not compute a valid order. Check addresses and try again.');
+          return;
+        }
+
+        // Reorder DOM to the best order
+        const wrap  = $('#lanes');
+        const nodes = Array.from($('#lanes').querySelectorAll('.lane')); // static snapshot
+        bestOrder.map(i => nodes[i]).forEach(n => wrap.appendChild(n));
+        refreshLaneIndices(); persist();
+
+        toast(`Order optimized. Est. deadhead: ${fmtMi(bestCost)} mi`);
+
+        // Recalculate map and results for the new order
+        await calculateAndMap();
+      }catch(err){
+        console.warn('optimizeOrder error:', err);
+        alert('Could not optimize (API limits or address errors). Try again.');
+      }
+    }
+
+    // ================== END OPTIMIZER ==================
 
     // ---- Resilient version: never aborts the run; logs and continues ----
     async function calculateAndMap(){
@@ -552,7 +724,7 @@
         pt.push(`Lane ${L.index}: ${L.origin} → ${L.destination}`);
         pt.push(`  Loaded: ${fmtMi(L.loaded)} mi | Deadhead: ${fmtMi(L.deadhead)} mi`);
         pt.push(`  Rate: $${(L.rate||0).toFixed(2)}/ton × ${(L.tons||0).toFixed(1)} tons = ${fmtMoney(L.gross||0)}`);
-        pt.push(`  Lane RPM: ${rpmLane.toFixed(2)}`);
+        pt.push(`  Lane RPM: $${rpmLane.toFixed(2)}`);
         pt.push('');
       });
       pt.push(`TOTAL Loaded: ${fmtMi(loaded)} mi`);
@@ -767,163 +939,6 @@
       $('#resultsTable').hidden = true;
       lastCompute = null;
     }
-
-    /* -------------------- OPTIMIZER HELPERS + ACTION -------------------- */
-
-    // Query Distance Matrix for miles between two strings (deadhead only)
-    function dmMiles(origin, destination){
-      return new Promise((resolve) => {
-        const dm = window._fpDM;
-        if(!dm){ resolve(Infinity); return; }
-        dm.getDistanceMatrix({
-          origins:[origin], destinations:[destination],
-          travelMode:'DRIVING', region:'US', unitSystem:google.maps.UnitSystem.IMPERIAL
-        }, (res, status)=>{
-          if(status==='OK' && res?.rows?.[0]?.elements?.[0]?.status==='OK'){
-            const meters = res.rows[0].elements[0].distance.value;
-            resolve(meters / 1609.344);
-          } else {
-            resolve(Infinity);
-          }
-        });
-      });
-    }
-
-    async function buildDeadheadMatrix(lanes, base, includeStart, returnTo){
-      const n = lanes.length;
-      const M = Array.from({length:n},()=>Array(n).fill(Infinity));
-      const promises = [];
-
-      for(let i=0;i<n;i++){
-        for(let j=0;j<n;j++){
-          if(i===j) continue;
-          promises.push(
-            dmMiles(lanes[i].destination, lanes[j].origin).then(mi=>{ M[i][j]=mi; })
-          );
-        }
-      }
-
-      const baseTo = Array(n).fill(Infinity);
-      const toBase = Array(n).fill(Infinity);
-      if(base && includeStart){
-        for(let j=0;j<n;j++) promises.push(dmMiles(base, lanes[j].origin).then(mi=>{ baseTo[j]=mi; }));
-      }
-      if(base && returnTo){
-        for(let i=0;i<n;i++) promises.push(dmMiles(lanes[i].destination, base).then(mi=>{ toBase[i]=mi; }));
-      }
-
-      await Promise.all(promises);
-      return {M, baseTo, toBase};
-    }
-
-    function costOfOrder(order, M, baseTo, toBase){
-      let dead=0;
-      if(baseTo?.length) {
-        const first = baseTo[order[0]];
-        if(!isFinite(first)) return Infinity;
-        dead += first;
-      }
-      for(let k=0;k<order.length-1;k++){
-        const c = M[order[k]][order[k+1]];
-        if(!isFinite(c)) return Infinity;
-        dead += c;
-      }
-      if(toBase?.length) {
-        const back = toBase[order[order.length-1]];
-        if(!isFinite(back)) return Infinity;
-        dead += back;
-      }
-      return dead;
-    }
-
-    // Heap's algorithm (iterative) to avoid recursion issues on iOS
-    function* permutations(arr){
-      const a = arr.slice();
-      const c = Array(a.length).fill(0);
-      yield a.slice();
-      let i = 0;
-      while(i < a.length){
-        if(c[i] < i){
-          if(i % 2 === 0){ [a[0], a[i]] = [a[i], a[0]]; }
-          else { [a[c[i]], a[i]] = [a[i], a[c[i]]]; }
-          yield a.slice();
-          c[i]++; i = 0;
-        } else {
-          c[i] = 0; i++;
-        }
-      }
-    }
-
-    async function optimizeOrder(){
-      const lanes = readLanes();
-      if(lanes.length < 2){ toast('Add at least two lanes to optimize'); return; }
-
-      const base = $('#base').value.trim();
-      const includeStart = $('#includeStartDH').checked && !!base;
-      const returnTo     = $('#returnToBase').checked && !!base;
-
-      toast('Computing best order…');
-
-      try{
-        const {M, baseTo, toBase} = await buildDeadheadMatrix(lanes, base, includeStart, returnTo);
-        const n = lanes.length;
-        let bestOrder = [...Array(n).keys()];
-        let bestCost  = Infinity;
-
-        if(n <= 7){
-          for(const ord of permutations(bestOrder)){
-            const c = costOfOrder(ord, M, includeStart?baseTo:[], returnTo?toBase:[]);
-            if(c < bestCost){ bestCost = c; bestOrder = ord.slice(); }
-          }
-        } else {
-          // Greedy: start lane chosen by best base→origin (if applicable) or by lowest avg outgoing
-          let start = 0;
-          if(includeStart){
-            let min = Infinity;
-            for(let j=0;j<n;j++){ if(baseTo[j] < min){ min = baseTo[j]; start = j; } }
-          } else {
-            let bestAvg = Infinity;
-            for(let i=0;i<n;i++){
-              const vals = M[i].filter(v=>isFinite(v));
-              const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : Infinity;
-              if(avg < bestAvg){ bestAvg = avg; start = i; }
-            }
-          }
-          const used = Array(n).fill(false); used[start] = true;
-          const ord = [start];
-          for(let step=1; step<n; step++){
-            const i = ord[ord.length-1];
-            let bestJ=-1, best=Infinity;
-            for(let j=0;j<n;j++){
-              if(used[j]) continue;
-              const c = M[i][j];
-              if(c < best){ best = c; bestJ = j; }
-            }
-            if(bestJ === -1){ bestJ = used.indexOf(false); }
-            used[bestJ] = true; ord.push(bestJ);
-          }
-          bestOrder = ord;
-          bestCost = costOfOrder(ord, M, includeStart?baseTo:[], returnTo?toBase:[]);
-        }
-
-        // Reorder DOM to match best order
-        const wrap = $('#lanes');
-        const nodes = Array.from($('#lanes').children); // snapshot
-        bestOrder.map(i => nodes[i]).forEach(node => wrap.appendChild(node));
-        refreshLaneIndices(); persist();
-
-        toast(
-          isFinite(bestCost)
-            ? `Order optimized. Est. deadhead: ${fmtMi(bestCost)} mi`
-            : 'Order optimized.'
-        );
-      }catch(err){
-        console.warn('optimizeOrder error:', err);
-        alert('Could not optimize (Distance Matrix unavailable or quota). Try again.');
-      }
-    }
-    /* ------------------ END OPTIMIZER ADDITIONS ------------------ */
-
   </script>
   <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAX9GFUEGbzuUx3KefbZw9_a0_eDOiNFf0&libraries=places&callback=initMap"></script>
 </body>
