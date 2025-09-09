@@ -10,8 +10,7 @@
     }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    /* Smaller map by widening the left column */
-    .app{display:grid;grid-template-columns:460px 1fr;min-height:100vh}
+    .app{display:grid;grid-template-columns:390px 1fr;min-height:100vh}
     .left{background:var(--panel);padding:16px;overflow:auto;border-right:1px solid #1b2532}
     .right{position:relative}
     h1{margin:0 0 10px;font-size:18px;letter-spacing:.2px}
@@ -25,7 +24,6 @@
     .btn.primary{background:var(--accent2);border-color:#1e5fbc}
     .btn.success{background:var(--accent);border-color:#2da373}
     .btn.ghost{background:#101827;border-color:#243244}
-    .btn.warning{background:#4b5563;border-color:#374151}
     .section{padding:10px 0;border-top:1px solid #1b2532;margin-top:10px}
     .lane{background:#0e1520;border:1px solid #233247;border-radius:12px;padding:10px;margin:8px 0}
     .lane.dragging{opacity:.6;outline:2px dashed #2a3a4f}
@@ -46,16 +44,6 @@
     .tag{font-size:11px;background:#0b1320;border:1px solid #22334a;border-radius:999px;padding:2px 6px;color:#cfe2f7}
     .legend{display:flex;gap:8px;align-items:center}
     .swatch{width:18px;height:3px;border-radius:2px}
-
-    /* Saved Lanes shelf (add-only; doesn’t disturb existing UI) */
-    .shelf{background:#0e1520;border:1px solid #233247;border-radius:12px;padding:10px;margin:8px 0}
-    .shelf h3{margin:0 0 8px;font-size:14px;color:#cfe2f7}
-    .saved-list{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto}
-    .saved-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border:1px solid #233247;border-radius:10px;background:#0b1320}
-    .saved-item .meta{flex:1;min-width:0}
-    .saved-item .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .ghostbtn{background:#101827;border-color:#243244;color:#cfe2f7}
-    .lane.selected{outline:2px solid #2a3a4f}
   </style>
 </head>
 <body>
@@ -82,26 +70,14 @@
         <div class="controls">
           <button type="button" class="btn success" id="addLane">+ Add lane</button>
           <button type="button" class="btn primary" id="calc">Calculate & Map</button>
-          <!-- NEW: optimizer button -->
-          <button type="button" class="btn warning" id="optimize">Optimize Order (RPM)</button>
+          <!-- NEW: Optimizer button -->
+          <button type="button" class="btn ghost" id="optimize">Optimize Order (RPM)</button>
           <button type="button" class="btn ghost" id="sample">Load sample</button>
           <button type="button" class="btn" id="clearAll">Clear</button>
         </div>
       </div>
 
       <div id="lanes"></div>
-
-      <!-- NEW: Saved Lanes (adds below without changing the calculator above) -->
-      <div class="section shelf">
-        <h3>Saved Lanes</h3>
-        <div class="row" style="gap:6px;margin-bottom:6px">
-          <button type="button" class="btn" id="saveSelected">Save selected lane</button>
-          <button type="button" class="btn ghostbtn" id="exportLib">Export</button>
-          <button type="button" class="btn ghostbtn" id="importLib">Import</button>
-        </div>
-        <div class="saved-list" id="savedList"></div>
-        <div class="note">Click ➕ to insert into your plan. (Desktop: you can still reorder lanes with ▲/▼ or drag.)</div>
-      </div>
 
       <div class="section">
         <div class="row" style="justify-content:space-between;align-items:center">
@@ -180,10 +156,8 @@
 
   <script>
     let map, bounds, dirService;
-    let dmService = null; // NEW: DistanceMatrix for optimizer
     const polylines = [];
     let lastCompute = null;
-    let library = []; // NEW: saved lanes
 
     const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
     const $  = (sel, ctx=document) => ctx.querySelector(sel);
@@ -246,16 +220,12 @@
     function setupUI(){
       $('#addLane').addEventListener('click', ()=>addLane());
       $('#calc').addEventListener('click', calculateAndMap);
+      // NEW: optimizer button
+      $('#optimize').addEventListener('click', optimizeOrder);
       $('#sample').addEventListener('click', loadSample);
       $('#clearAll').addEventListener('click', clearAll);
       $('#exportCsv').addEventListener('click', exportCSV);
       $('#emailBtn').addEventListener('click', openProposal);
-
-      // NEW
-      $('#optimize').addEventListener('click', optimizeOrder);
-      $('#saveSelected').addEventListener('click', saveSelectedLane);
-      $('#exportLib').addEventListener('click', exportLibrary);
-      $('#importLib').addEventListener('click', importLibrary);
 
       const wrap = $('#lanes');
       wrap.addEventListener('dragover', e=>{
@@ -268,7 +238,6 @@
       });
 
       if(!loadFromURL()) loadFromStorage();
-      loadLibrary(); renderLibrary();
       if(!$('#lanes').children.length) addLane();
     }
 
@@ -287,7 +256,8 @@
         });
         bounds = new google.maps.LatLngBounds();
         dirService = new google.maps.DirectionsService();
-        dmService  = new google.maps.DistanceMatrixService(); // NEW
+        // NEW: Distance Matrix service for optimizer
+        window._fpDM = new google.maps.DistanceMatrixService();
         safeAutocomplete($('#base'));
       }catch(e){
         console.warn('Maps init failed:', e);
@@ -318,10 +288,6 @@
 
       node.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain','drag'); node.classList.add('dragging'); });
       node.addEventListener('dragend',   ()=>{ node.classList.remove('dragging'); persist(); refreshLaneIndices(); });
-
-      // mark selected lane for "Save selected"
-      node.addEventListener('focusin', ()=>{ $$('#lanes .lane').forEach(x=>x.classList.remove('selected')); node.classList.add('selected'); });
-      node.addEventListener('click',   ()=>{ $$('#lanes .lane').forEach(x=>x.classList.remove('selected')); node.classList.add('selected'); });
 
       $$('.origin,.destination,.rate,.tons', node).forEach(inp=>{
         inp.addEventListener('change', persist);
@@ -586,7 +552,7 @@
         pt.push(`Lane ${L.index}: ${L.origin} → ${L.destination}`);
         pt.push(`  Loaded: ${fmtMi(L.loaded)} mi | Deadhead: ${fmtMi(L.deadhead)} mi`);
         pt.push(`  Rate: $${(L.rate||0).toFixed(2)}/ton × ${(L.tons||0).toFixed(1)} tons = ${fmtMoney(L.gross||0)}`);
-        pt.push(`  Lane RPM: $${rpmLane.toFixed(2)}`);
+        pt.push(`  Lane RPM: ${rpmLane.toFixed(2)}`);
         pt.push('');
       });
       pt.push(`TOTAL Loaded: ${fmtMi(loaded)} mi`);
@@ -724,7 +690,6 @@
       return str.replace(/[&<>"]/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s]));
     }
 
-    // ---------- Persistence (unchanged) ----------
     function persist(){
       const data = {
         base: $('#base').value.trim(),
@@ -803,66 +768,22 @@
       lastCompute = null;
     }
 
-    // ---------- Saved Lanes (NEW) ----------
-    function loadLibrary(){ try{ library = JSON.parse(localStorage.getItem('farmpro_saved')||'[]'); }catch(_){ library=[]; } }
-    function persistLibrary(){ localStorage.setItem('farmpro_saved', JSON.stringify(library)); }
-    function renderLibrary(){
-      const list = $('#savedList'); list.innerHTML='';
-      library.forEach((L, i)=>{
-        const item = document.createElement('div');
-        item.className='saved-item';
-        item.innerHTML = `
-          <div class="meta">
-            <div class="t">${escapeHtml(L.origin)} → ${escapeHtml(L.destination)}</div>
-            <div class="muted">$${(L.rate||0).toFixed(2)}/ton • ${(L.tons||0).toFixed(1)} tons</div>
-          </div>
-          <div class="row">
-            <button type="button" class="btn ghostbtn add">➕</button>
-            <button type="button" class="btn ghostbtn del">✕</button>
-          </div>`;
-        item.querySelector('.add').onclick = ()=> addLane(L);
-        item.querySelector('.del').onclick = ()=>{ library.splice(i,1); persistLibrary(); renderLibrary(); };
-        list.appendChild(item);
-      });
-    }
-    function saveSelectedLane(){
-      const node = $('#lanes .lane.selected') || $('#lanes .lane');
-      if(!node){ alert('Add a lane first'); return; }
-      const o = node.querySelector('.origin').value.trim();
-      const d = node.querySelector('.destination').value.trim();
-      const rate = parseFloat(node.querySelector('.rate').value)||0;
-      const tons = parseFloat(node.querySelector('.tons').value)||0;
-      if(!o || !d){ alert('Enter origin and destination first'); return; }
-      library.push({origin:o, destination:d, rate, tons});
-      persistLibrary(); renderLibrary();
-    }
-    function exportLibrary(){
-      const blob = new Blob([JSON.stringify(library,null,2)],{type:'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = Object.assign(document.createElement('a'), {href:url, download:'saved_lanes.json'});
-      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-    }
-    function importLibrary(){
-      const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json';
-      inp.onchange = ()=>{ const f=inp.files[0]; if(!f) return; const r=new FileReader();
-        r.onload = ()=>{ try{ const data=JSON.parse(r.result); if(Array.isArray(data)){ library=data; persistLibrary(); renderLibrary(); } else alert('Invalid JSON'); }catch(_){ alert('Invalid JSON'); } };
-        r.readAsText(f);
-      };
-      inp.click();
-    }
+    /* -------------------- OPTIMIZER HELPERS + ACTION -------------------- */
 
-    // ---------- Optimizer (NEW: minimizes deadhead between lanes) ----------
+    // Query Distance Matrix for miles between two strings (deadhead only)
     function dmMiles(origin, destination){
-      return new Promise((resolve, reject)=>{
-        if(!dmService) return reject(new Error('DistanceMatrix not ready'));
-        dmService.getDistanceMatrix({
+      return new Promise((resolve) => {
+        const dm = window._fpDM;
+        if(!dm){ resolve(Infinity); return; }
+        dm.getDistanceMatrix({
           origins:[origin], destinations:[destination],
           travelMode:'DRIVING', region:'US', unitSystem:google.maps.UnitSystem.IMPERIAL
         }, (res, status)=>{
-          if(status==='OK' && res.rows[0]?.elements[0]?.status==='OK'){
-            resolve(metersToMiles(res.rows[0].elements[0].distance.value));
+          if(status==='OK' && res?.rows?.[0]?.elements?.[0]?.status==='OK'){
+            const meters = res.rows[0].elements[0].distance.value;
+            resolve(meters / 1609.344);
           } else {
-            resolve(Infinity); // treat as impossible hop
+            resolve(Infinity);
           }
         });
       });
@@ -870,90 +791,139 @@
 
     async function buildDeadheadMatrix(lanes, base, includeStart, returnTo){
       const n = lanes.length;
-      const M = Array.from({length:n},()=>Array(n).fill(0));
-      const tasks = [];
+      const M = Array.from({length:n},()=>Array(n).fill(Infinity));
+      const promises = [];
+
       for(let i=0;i<n;i++){
         for(let j=0;j<n;j++){
-          if(i===j){ M[i][j] = Infinity; continue; }
-          tasks.push( dmMiles(lanes[i].destination, lanes[j].origin).then(mi=>{ M[i][j]=mi; }) );
+          if(i===j) continue;
+          promises.push(
+            dmMiles(lanes[i].destination, lanes[j].origin).then(mi=>{ M[i][j]=mi; })
+          );
         }
       }
-      let baseTo = Array(n).fill(Infinity), toBase = Array(n).fill(Infinity);
-      if(base && includeStart) for(let j=0;j<n;j++) tasks.push( dmMiles(base, lanes[j].origin).then(mi=>{ baseTo[j]=mi; }) );
-      if(base && returnTo)     for(let i=0;i<n;i++) tasks.push( dmMiles(lanes[i].destination, base).then(mi=>{ toBase[i]=mi; }) );
-      await Promise.all(tasks);
+
+      const baseTo = Array(n).fill(Infinity);
+      const toBase = Array(n).fill(Infinity);
+      if(base && includeStart){
+        for(let j=0;j<n;j++) promises.push(dmMiles(base, lanes[j].origin).then(mi=>{ baseTo[j]=mi; }));
+      }
+      if(base && returnTo){
+        for(let i=0;i<n;i++) promises.push(dmMiles(lanes[i].destination, base).then(mi=>{ toBase[i]=mi; }));
+      }
+
+      await Promise.all(promises);
       return {M, baseTo, toBase};
     }
 
-    function permute(arr){
-      const res=[]; const used=Array(arr.length).fill(false); const cur=[];
-      (function dfs(){ if(cur.length===arr.length){ res.push(cur.slice()); return; }
-        for(let i=0;i<arr.length;i++){ if(used[i])continue; used[i]=true; cur.push(arr[i]); dfs(); cur.pop(); used[i]=false; }
-      })();
-      return res;
-    }
-
-    function orderCost(order, M, baseTo, toBase){
+    function costOfOrder(order, M, baseTo, toBase){
       let dead=0;
-      if(baseTo.length && isFinite(baseTo[order[0]])) dead+=baseTo[order[0]];
+      if(baseTo?.length) {
+        const first = baseTo[order[0]];
+        if(!isFinite(first)) return Infinity;
+        dead += first;
+      }
       for(let k=0;k<order.length-1;k++){
         const c = M[order[k]][order[k+1]];
         if(!isFinite(c)) return Infinity;
-        dead+=c;
+        dead += c;
       }
-      if(toBase.length && isFinite(toBase[order[order.length-1]])) dead+=toBase[order[order.length-1]];
+      if(toBase?.length) {
+        const back = toBase[order[order.length-1]];
+        if(!isFinite(back)) return Infinity;
+        dead += back;
+      }
       return dead;
+    }
+
+    // Heap's algorithm (iterative) to avoid recursion issues on iOS
+    function* permutations(arr){
+      const a = arr.slice();
+      const c = Array(a.length).fill(0);
+      yield a.slice();
+      let i = 0;
+      while(i < a.length){
+        if(c[i] < i){
+          if(i % 2 === 0){ [a[0], a[i]] = [a[i], a[0]]; }
+          else { [a[c[i]], a[i]] = [a[i], a[c[i]]]; }
+          yield a.slice();
+          c[i]++; i = 0;
+        } else {
+          c[i] = 0; i++;
+        }
+      }
     }
 
     async function optimizeOrder(){
       const lanes = readLanes();
-      if(lanes.length<2){ alert('Add at least two lanes to optimize.'); return; }
+      if(lanes.length < 2){ toast('Add at least two lanes to optimize'); return; }
+
       const base = $('#base').value.trim();
       const includeStart = $('#includeStartDH').checked && !!base;
       const returnTo     = $('#returnToBase').checked && !!base;
 
+      toast('Computing best order…');
+
       try{
         const {M, baseTo, toBase} = await buildDeadheadMatrix(lanes, base, includeStart, returnTo);
         const n = lanes.length;
-        let bestOrder = [...Array(n).keys()], bestCost = Infinity;
+        let bestOrder = [...Array(n).keys()];
+        let bestCost  = Infinity;
 
         if(n <= 7){
-          for(const ord of permute(bestOrder)){
-            const c = orderCost(ord, M, includeStart?baseTo:[], returnTo?toBase:[]);
-            if(c < bestCost){ bestCost = c; bestOrder = ord; }
+          for(const ord of permutations(bestOrder)){
+            const c = costOfOrder(ord, M, includeStart?baseTo:[], returnTo?toBase:[]);
+            if(c < bestCost){ bestCost = c; bestOrder = ord.slice(); }
           }
         } else {
-          // Greedy nearest-neighbor heuristic
+          // Greedy: start lane chosen by best base→origin (if applicable) or by lowest avg outgoing
           let start = 0;
           if(includeStart){
-            let min = Infinity; for(let j=0;j<n;j++){ if(baseTo[j]<min){ min=baseTo[j]; start=j; } }
+            let min = Infinity;
+            for(let j=0;j<n;j++){ if(baseTo[j] < min){ min = baseTo[j]; start = j; } }
+          } else {
+            let bestAvg = Infinity;
+            for(let i=0;i<n;i++){
+              const vals = M[i].filter(v=>isFinite(v));
+              const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : Infinity;
+              if(avg < bestAvg){ bestAvg = avg; start = i; }
+            }
           }
-          const used = Array(n).fill(false); used[start]=true; const ord=[start];
+          const used = Array(n).fill(false); used[start] = true;
+          const ord = [start];
           for(let step=1; step<n; step++){
             const i = ord[ord.length-1];
             let bestJ=-1, best=Infinity;
-            for(let j=0;j<n;j++){ if(used[j]) continue;
+            for(let j=0;j<n;j++){
+              if(used[j]) continue;
               const c = M[i][j];
-              if(c<best){ best=c; bestJ=j; }
+              if(c < best){ best = c; bestJ = j; }
             }
-            used[bestJ]=true; ord.push(bestJ);
+            if(bestJ === -1){ bestJ = used.indexOf(false); }
+            used[bestJ] = true; ord.push(bestJ);
           }
           bestOrder = ord;
-          bestCost = orderCost(ord, M, includeStart?baseTo:[], returnTo?toBase:[]);
+          bestCost = costOfOrder(ord, M, includeStart?baseTo:[], returnTo?toBase:[]);
         }
 
-        // Reorder DOM to match optimized order
+        // Reorder DOM to match best order
         const wrap = $('#lanes');
-        const nodes = $$('#lanes .lane');
-        bestOrder.map(i=>nodes[i]).forEach(n=>wrap.appendChild(n));
+        const nodes = Array.from($('#lanes').children); // snapshot
+        bestOrder.map(i => nodes[i]).forEach(node => wrap.appendChild(node));
         refreshLaneIndices(); persist();
 
-        alert(isFinite(bestCost) ? `Order optimized. Estimated deadhead: ${fmtMi(bestCost)} mi.` : 'Order optimized.');
+        toast(
+          isFinite(bestCost)
+            ? `Order optimized. Est. deadhead: ${fmtMi(bestCost)} mi`
+            : 'Order optimized.'
+        );
       }catch(err){
         console.warn('optimizeOrder error:', err);
-        alert('Could not optimize – Distance Matrix may be unavailable. Try again.');
+        alert('Could not optimize (Distance Matrix unavailable or quota). Try again.');
       }
     }
+    /* ------------------ END OPTIMIZER ADDITIONS ------------------ */
+
   </script>
   <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAX9GFUEGbzuUx3KefbZw9_a0_eDOiNFf0&libraries=places&callback=initMap"></script>
 </body>
