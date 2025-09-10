@@ -406,10 +406,11 @@
       node.addEventListener('focusin', ()=>{ $$('#lanes .lane').forEach(x=>x.classList.remove('selected')); node.classList.add('selected'); });
       node.addEventListener('click',   ()=>{ $$('#lanes .lane').forEach(x=>x.classList.remove('selected')); node.classList.add('selected'); });
 
-      $$('.origin,.destination,.rate,.tons', node).forEach(inp=>{
-        inp.addEventListener('change', persist, {passive:true});
-        inp.addEventListener('blur', persist, {passive:true});
-      });
+     $$('.origin,.destination,.rate,.tons', node).forEach(inp=>{
+  inp.addEventListener('input', persist, {passive:true});   // fires on typing
+  inp.addEventListener('change', persist, {passive:true});
+  inp.addEventListener('blur', persist, {passive:true});
+});
       persist();
     }
 
