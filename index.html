@@ -17,39 +17,22 @@
     .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .controls{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
     label{font-size:12px;color:var(--muted)}
-   input[type="text"], input[type="number"]{
-  width:100%;
-  padding:10px 12px;
-  border-radius:10px;
-  border:1px solid #203044;
-  background:#0e1520;
-  color:var(--text);        /* ✅ correct */
-  caret-color:var(--text);  /* nice to have */
-}
+    input[type="text"], input[type="number"]{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #203044;background:#0e1520;color:var(--text)}
     input[type="checkbox"]{transform:scale(1.1)}
     .btn{padding:10px 12px;border-radius:10px;border:1px solid #2a3a4f;background:#162233;color:#fff;cursor:pointer}
     .btn:hover{filter:brightness(1.1)}
     .btn.primary{background:var(--accent2);border-color:#1e5fbc}
     .btn.success{background:var(--accent);border-color:#2da373}
     .btn.ghost{background:#101827;border-color:#243244}
-    .btn.warning{background:#4b5563;border-color:#374151}
     .section{padding:10px 0;border-top:1px solid #1b2532;margin-top:10px}
-    .lane{background:#0e1520;border:1px solid #233247;border-radius:12px;padding:10px;margin:8px 0; position:relative}
+    .lane{background:#0e1520;border:1px solid #233247;border-radius:12px;padding:10px;margin:8px 0}
     .lane.dragging{opacity:.6;outline:2px dashed #2a3a4f}
     .lane > .row{margin:8px 0}
     .lane h3{margin:0;font-size:14px;color:#cfe2f7}
     .lane small{color:var(--muted)}
     .iconbtn{background:transparent;border:1px solid #34465f;border-radius:8px;color:#a3b6ce;padding:6px 8px;cursor:pointer}
     .iconbtn:hover{background:#182334}
-    /* Lane # badge (Patch 5) */
-    .lane .laneNum{
-      position:absolute;left:-10px;top:-10px;background:#0d63ff;border:2px solid #16345f;
-      color:#fff;font-weight:700;font-size:12px;width:28px;height:28px;border-radius:999px;
-      display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.35)
-    }
-    /* Map smaller portion (Patch 6) */
-    .right{min-height:70vh}
-    #map{position:absolute;inset:0;max-height:70vh}
+    #map{position:absolute;inset:0}
     table{width:100%;border-collapse:collapse;margin-top:10px}
     th,td{padding:8px;border-bottom:1px solid #223045;text-align:right}
     th{color:#c3d4e9;font-weight:600}
@@ -61,32 +44,6 @@
     .tag{font-size:11px;background:#0b1320;border:1px solid #22334a;border-radius:999px;padding:2px 6px;color:#cfe2f7}
     .legend{display:flex;gap:8px;align-items:center}
     .swatch{width:18px;height:3px;border-radius:2px}
-
-    /* ==== Saved lanes shelf (Patch 1) ==== */
-    .shelf{background:#0e1520;border:1px solid #233247;border-radius:12px;padding:10px;margin:8px 0}
-    .shelf h3{margin:0 0 8px;font-size:14px;color:#cfe2f7}
-    .saved-list{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto}
-    .saved-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border:1px solid #233247;border-radius:10px;background:#0b1320}
-    .saved-item .meta{flex:1;min-width:0}
-    .saved-item .meta .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .saved-actions{display:flex;gap:6px}
-    .handle{cursor:grab;padding:4px 6px;border:1px dashed #2a3a4f;border-radius:8px;background:#0b1320;color:#9fb0c2}
-    .ghostbtn{background:#101827;border-color:#243244;color:#cfe2f7}
-    .savebtn{background:#0b1320;border-color:#2a3a4f}
-
-    /* --- Rate Helper modal (Patch 7) --- */
-    .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99999}
-    .modal .card{background:#0e1520;border:1px solid #233247;border-radius:14px;max-width:560px;width:92vw;padding:14px}
-    .modal h4{margin:0 0 8px;font-size:16px;color:#cfe2f7}
-    .modal .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .modal .row{margin:6px 0}
-    .modal label{font-size:12px;color:var(--muted)}
-    .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
-    .modal .pillnote{font-size:12px;color:#9fb0c2;background:#0b1320;border:1px solid #22334a;border-radius:999px;padding:3px 8px;display:inline-block}
-    .modal .out{font-weight:700;font-size:16px}
-    .modal .warn{color:#ffcc88}
-    .modal .muted{color:#9fb0c2}
-    .iconbtn.rate{border-color:#2a3a4f;color:#dbe7f7}
   </style>
 </head>
 <body>
@@ -120,18 +77,6 @@
       </div>
 
       <div id="lanes"></div>
-
-      <!-- Saved lanes library (Patch 2) -->
-      <div class="section shelf">
-        <h3>Saved Lanes</h3>
-        <div class="row" style="gap:6px;margin-bottom:6px">
-          <button type="button" class="btn savebtn" id="saveSelected">★ Save Selected Lane</button>
-          <button type="button" class="btn ghostbtn" id="exportLib">Export</button>
-          <button type="button" class="btn ghostbtn" id="importLib">Import</button>
-        </div>
-        <div class="saved-list" id="savedList"></div>
-        <div class="note">Click ➕ to insert after the selected lane (or at end if none is selected). Drag to reorder saved lanes.</div>
-      </div>
 
       <div class="section">
         <div class="row" style="justify-content:space-between;align-items:center">
@@ -176,12 +121,10 @@
   </div>
 
   <template id="laneTmpl">
-    <div class="lane" draggable="true" tabindex="0">
-      <div class="laneNum"></div>
+    <div class="lane" draggable="true">
       <div class="row" style="justify-content:space-between;align-items:center">
         <h3>Lane <span class="laneIndex"></span> <small class="muted">(Origin → Destination)</small></h3>
         <div class="row">
-          <button type="button" class="iconbtn rate rateHelp" title="Rate helper">Rate</button>
           <button type="button" class="iconbtn moveUp" title="Move up">▲</button>
           <button type="button" class="iconbtn moveDown" title="Move down">▼</button>
           <button type="button" class="iconbtn del" title="Remove lane">Remove</button>
@@ -210,76 +153,10 @@
     </div>
   </template>
 
-  <!-- Rate Helper modal (Patch 7) -->
-  <template id="rateHelperTmpl">
-    <div class="modal" role="dialog" aria-modal="true">
-      <div class="card">
-        <h4>Rate Helper</h4>
-        <div class="muted" style="margin-bottom:6px">
-          <span class="pillnote" id="rhLaneName"></span>
-          <span style="margin-left:8px" class="muted">Auto-estimates miles with Google (you can override).</span>
-        </div>
-        <div class="grid">
-          <div>
-            <div class="row">
-              <label>Loaded miles</label>
-              <input id="rhLoaded" type="number" step="1" />
-            </div>
-            <div class="row">
-              <label>Deadhead miles (for this lane)</label>
-              <input id="rhDeadhead" type="number" step="1" />
-            </div>
-            <div class="row">
-              <label>Tons</label>
-              <input id="rhTons" type="number" step="0.1" />
-            </div>
-          </div>
-          <div>
-            <div class="row">
-              <label>Target (choose one)</label>
-              <div class="row" style="gap:6px">
-                <span class="pillnote">$<input id="rhRPM" type="number" step="0.01" style="width:90px"> RPM</span>
-                <span class="pillnote">$<input id="rhPerMile" type="number" step="0.01" style="width:90px"> /mile</span>
-              </div>
-            </div>
-            <div class="row">
-              <label>Rounding</label>
-              <select id="rhRound">
-                <option value="0">No rounding</option>
-                <option value="0.05">Nearest $0.05</option>
-                <option value="0.10">Nearest $0.10</option>
-                <option value="0.25" selected>Nearest $0.25</option>
-                <option value="0.50">Nearest $0.50</option>
-                <option value="1">Nearest $1.00</option>
-              </select>
-            </div>
-            <div class="row">
-              <label>Suggestion from Saved Lanes</label>
-              <div class="muted" id="rhSavedHint">—</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row" style="margin-top:8px">
-          <div class="muted">Formula: <code class="warn">$ / ton = (Target × (Loaded + Deadhead)) ÷ Tons</code></div>
-        </div>
-        <div class="row" style="align-items:center;justify-content:space-between;margin-top:4px">
-          <div>Recommended $/ton: <span id="rhOut" class="out">$0.00</span></div>
-          <div class="actions">
-            <button class="btn ghost" id="rhClose">Close</button>
-            <button class="btn success" id="rhApply">Apply to lane</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </template>
-
   <script>
     let map, bounds, dirService;
-    let dmService = null; // used by optimizer & rate helper (DM-first)
     const polylines = [];
     let lastCompute = null;
-    let library = []; // Saved lanes (Patch 3)
 
     const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
     const $  = (sel, ctx=document) => ctx.querySelector(sel);
@@ -287,7 +164,7 @@
     const fmtMi    = n => (Math.round(n * 10) / 10).toLocaleString(undefined,{minimumFractionDigits:1, maximumFractionDigits:1});
     const fmtMoney = n => n.toLocaleString(undefined,{style:'currency',currency:'USD'});
 
-    // ---- Diagnostics
+    // ---- Diagnostics panel + global error hooks (shows errors on iPad) ----
     (function(){
       const box = document.createElement('div');
       box.id = 'fp_log';
@@ -306,32 +183,40 @@
       });
       btn.onclick = ()=>{ box.style.display = (box.style.display==='none'?'block':'none'); };
       document.addEventListener('DOMContentLoaded',()=>{ document.body.appendChild(btn); document.body.appendChild(box); });
-      function logLine(kind, msg){ const p=document.createElement('div'); p.textContent = `[${kind}] ${msg}`; box.appendChild(p); box.style.display='block'; }
+
+      function logLine(kind, msg){
+        const p=document.createElement('div'); p.textContent = `[${kind}] ${msg}`;
+        box.appendChild(p); box.style.display='block';
+      }
       window.fpLog = (msg)=>logLine('log', msg);
       window.addEventListener('error', e => logLine('error', (e.error && e.error.stack) || e.message || String(e)));
       window.addEventListener('unhandledrejection', e => logLine('promise', (e.reason && (e.reason.stack||e.reason.message)) || String(e.reason)));
     })();
 
-    function toast(msg, ms=2600){
+    // ---- Tiny toast for routing notices ----
+    function toast(msg, ms=3000){
       let el = document.getElementById('fp_toast');
       if(!el){
         el = document.createElement('div');
         el.id = 'fp_toast';
-        Object.assign(el.style, { position:'fixed', left:'50%', bottom:'16px', transform:'translateX(-50%)',
+        Object.assign(el.style, {
+          position:'fixed', left:'50%', bottom:'16px', transform:'translateX(-50%)',
           background:'#111924', color:'#e8f0fb', padding:'8px 12px',
           border:'1px solid #2a3a4f', borderRadius:'10px', zIndex:99999,
-          boxShadow:'0 6px 18px rgba(0,0,0,.35)', font:'13px/1.3 system-ui',
-          transition:'opacity .25s', opacity:'1' });
+          boxShadow:'0 6px 18px rgba(0,0,0,.35)', font:'13px/1.3 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif',
+          transition:'opacity .25s', opacity:'1'
+        });
         document.body.appendChild(el);
       }
-      el.textContent = msg; el.style.opacity='1';
-      clearTimeout(el._t); el._t = setTimeout(()=>{ el.style.opacity='0'; }, ms);
+      el.textContent = msg;
+      el.style.opacity = '1';
+      clearTimeout(el._t);
+      el._t = setTimeout(()=>{ el.style.opacity='0'; }, ms);
     }
 
     document.addEventListener('DOMContentLoaded', setupUI);
 
     function setupUI(){
-      // buttons
       $('#addLane').addEventListener('click', ()=>addLane());
       $('#calc').addEventListener('click', calculateAndMap);
       $('#optimize').addEventListener('click', optimizeOrder);
@@ -340,12 +225,6 @@
       $('#exportCsv').addEventListener('click', exportCSV);
       $('#emailBtn').addEventListener('click', openProposal);
 
-      // library buttons (Patch 3)
-      $('#saveSelected').addEventListener('click', saveSelectedLane);
-      $('#exportLib').addEventListener('click', exportLibrary);
-      $('#importLib').addEventListener('click', importLibrary);
-
-      // DnD reordering within lanes
       const wrap = $('#lanes');
       wrap.addEventListener('dragover', e=>{
         e.preventDefault();
@@ -357,13 +236,15 @@
       });
 
       if(!loadFromURL()) loadFromStorage();
-      loadLibrary(); renderLibrary();
-
       if(!$('#lanes').children.length) addLane();
     }
 
     function safeAutocomplete(input){
-      try{ if (google?.maps?.places?.Autocomplete) new google.maps.places.Autocomplete(input, { fields:['geometry','name'], types:['geocode'] }); }catch(_){ }
+      try{
+        if (google?.maps?.places?.Autocomplete) {
+          new google.maps.places.Autocomplete(input, { fields:['geometry','name'], types:['geocode'] });
+        }
+      } catch(_){}
     }
 
     function initMap(){
@@ -373,9 +254,12 @@
         });
         bounds = new google.maps.LatLngBounds();
         dirService = new google.maps.DirectionsService();
-        dmService  = new google.maps.DistanceMatrixService(); // for optimizer & rate helper
+        // Distance Matrix for optimizer
+        window._fpDM = new google.maps.DistanceMatrixService();
         safeAutocomplete($('#base'));
-      }catch(e){ console.warn('Maps init failed:', e); }
+      }catch(e){
+        console.warn('Maps init failed:', e);
+      }
     }
 
     function addLane(data={}){
@@ -394,23 +278,19 @@
       if(data.rate!=null) node.querySelector('.rate').value = data.rate;
       if(data.tons!=null) node.querySelector('.tons').value = data.tons;
 
-      node.querySelector('.del').addEventListener('click', ()=>{ node.remove(); refreshLaneIndices(); persist(); });
+      node.querySelector('.del').addEventListener('click', ()=>{
+        node.remove(); refreshLaneIndices(); persist();
+      });
       node.querySelector('.moveUp').addEventListener('click', ()=> moveLane(node,-1));
       node.querySelector('.moveDown').addEventListener('click', ()=> moveLane(node,+1));
-      node.querySelector('.rateHelp').addEventListener('click', ()=> openRateHelper(node)); // Patch 7 hook
 
       node.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain','drag'); node.classList.add('dragging'); });
       node.addEventListener('dragend',   ()=>{ node.classList.remove('dragging'); persist(); refreshLaneIndices(); });
 
-      // selection marker for "Save Selected" / "Insert after selected"
-      node.addEventListener('focusin', ()=>{ $$('#lanes .lane').forEach(x=>x.classList.remove('selected')); node.classList.add('selected'); });
-      node.addEventListener('click',   ()=>{ $$('#lanes .lane').forEach(x=>x.classList.remove('selected')); node.classList.add('selected'); });
-
-     $$('.origin,.destination,.rate,.tons', node).forEach(inp=>{
-  inp.addEventListener('input', persist, {passive:true});   // fires on typing
-  inp.addEventListener('change', persist, {passive:true});
-  inp.addEventListener('blur', persist, {passive:true});
-});
+      $$('.origin,.destination,.rate,.tons', node).forEach(inp=>{
+        inp.addEventListener('change', persist);
+        inp.addEventListener('blur', persist);
+      });
       persist();
     }
 
@@ -420,15 +300,17 @@
       const idx = lanes.indexOf(node);
       const newIdx = idx + dir;
       if(newIdx < 0 || newIdx >= lanes.length) return;
-      if(dir < 0) wrap.insertBefore(node, lanes[newIdx]);
-      else wrap.insertBefore(node, lanes[newIdx].nextSibling);
+      if(dir < 0){
+        wrap.insertBefore(node, lanes[newIdx]);
+      } else {
+        wrap.insertBefore(node, lanes[newIdx].nextSibling);
+      }
       refreshLaneIndices(); persist();
     }
 
     function refreshLaneIndices(){
       $$('#lanes .lane').forEach((lane, i)=>{
         lane.querySelector('.laneIndex').textContent = i+1;
-        const num = lane.querySelector('.laneNum'); num.textContent = i+1;
       });
     }
 
@@ -466,32 +348,39 @@
       map.fitBounds(bounds, {top:24,right:24,bottom:24,left:24});
     }
 
-    // ================== OPTIMIZER (Patch 4) ==================
-    const _deadheadCache = new Map();  // "A|B" -> miles
+    // ================== OPTIMIZER: DM-first with Directions fallback ==================
+
+    // Memoized hop distance: Distance Matrix first, then Directions fallback
+    const _deadheadCache = new Map();  // key: "A|B" -> miles
     async function deadheadMiles(a, b){
       const key = a+'|'+b;
       if(_deadheadCache.has(key)) return _deadheadCache.get(key);
 
-      // Distance Matrix first
+      // Try Distance Matrix
       let miles = await new Promise((resolve)=>{
-        if(!dmService){ resolve(Infinity); return; }
-        dmService.getDistanceMatrix(
+        const dm = window._fpDM;
+        if(!dm){ resolve(Infinity); return; }
+        dm.getDistanceMatrix(
           {origins:[a], destinations:[b], travelMode:'DRIVING', region:'US', unitSystem:google.maps.UnitSystem.IMPERIAL},
           (res, status)=>{
             if(status==='OK' && res?.rows?.[0]?.elements?.[0]?.status==='OK'){
               resolve(res.rows[0].elements[0].distance.value / 1609.344);
-            } else { resolve(Infinity); }
+            } else {
+              resolve(Infinity);
+            }
           }
         );
       });
 
-      // Directions fallback
+      // Fallback to DirectionsService
       if(!isFinite(miles)){
         try{
           const r = await routeMiles(a, b);
           miles = r.miles;
-          await new Promise(r=>setTimeout(r, 60)); // pace calls
-        }catch{ miles = Infinity; }
+          await new Promise(r=>setTimeout(r, 75)); // gentle pacing
+        }catch{
+          miles = Infinity;
+        }
       }
 
       _deadheadCache.set(key, miles);
@@ -501,16 +390,23 @@
     async function buildDeadheadMatrix(lanes, base, includeStart, returnTo){
       const n = lanes.length;
       const M = Array.from({length:n},()=>Array(n).fill(Infinity));
+
       for(let i=0;i<n;i++){
         for(let j=0;j<n;j++){
           if(i===j) continue;
           M[i][j] = await deadheadMiles(lanes[i].destination, lanes[j].origin);
         }
       }
+
       const baseTo = Array(n).fill(Infinity);
       const toBase = Array(n).fill(Infinity);
-      if(base && includeStart){ for(let j=0;j<n;j++) baseTo[j] = await deadheadMiles(base, lanes[j].origin); }
-      if(base && returnTo){ for(let i=0;i<n;i++) toBase[i] = await deadheadMiles(lanes[i].destination, base); }
+
+      if(base && includeStart){
+        for(let j=0;j<n;j++) baseTo[j] = await deadheadMiles(base, lanes[j].origin);
+      }
+      if(base && returnTo){
+        for(let i=0;i<n;i++) toBase[i] = await deadheadMiles(lanes[i].destination, base);
+      }
       return {M, baseTo, toBase};
     }
 
@@ -534,13 +430,19 @@
     function costOfOrder(order, M, baseTo, toBase){
       let dead=0;
       if(baseTo?.length){
-        const first = baseTo[order[0]]; if(!isFinite(first)) return Infinity; dead+=first;
+        const first = baseTo[order[0]];
+        if(!isFinite(first)) return Infinity;
+        dead += first;
       }
       for(let k=0;k<order.length-1;k++){
-        const c = M[order[k]][order[k+1]]; if(!isFinite(c)) return Infinity; dead+=c;
+        const c = M[order[k]][order[k+1]];
+        if(!isFinite(c)) return Infinity;
+        dead += c;
       }
       if(toBase?.length){
-        const back = toBase[order[order.length-1]]; if(!isFinite(back)) return Infinity; dead+=back;
+        const back = toBase[order[order.length-1]];
+        if(!isFinite(back)) return Infinity;
+        dead += back;
       }
       return dead;
     }
@@ -554,10 +456,12 @@
       const returnTo     = $('#returnToBase').checked && !!base;
 
       toast('Computing best order…');
+
       try{
         const {M, baseTo, toBase} = await buildDeadheadMatrix(lanes, base, includeStart, returnTo);
         const n = lanes.length;
-        let bestOrder = [...Array(n).keys()], bestCost = Infinity;
+        let bestOrder = [...Array(n).keys()];
+        let bestCost  = Infinity;
 
         if(n <= 7){
           for(const ord of permutations(bestOrder)){
@@ -567,169 +471,58 @@
         } else {
           // Greedy heuristic for larger n
           let start = 0;
-          if(includeStart){ let min=Infinity; for(let j=0;j<n;j++){ if(baseTo[j]<min){min=baseTo[j]; start=j;} } }
-          else {
-            let bestAvg=Infinity; for(let i=0;i<n;i++){
-              const vals = M[i].filter(x=>isFinite(x));
-              const avg = vals.length? vals.reduce((a,b)=>a+b,0)/vals.length : Infinity;
-              if(avg<bestAvg){ bestAvg=avg; start=i; }
+          if(includeStart){
+            let min = Infinity;
+            for(let j=0;j<n;j++){ if(baseTo[j] < min){ min = baseTo[j]; start = j; } }
+          } else {
+            let bestAvg = Infinity;
+            for(let i=0;i<n;i++){
+              const vals = M[i].filter(v=>isFinite(v));
+              const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : Infinity;
+              if(avg < bestAvg){ bestAvg = avg; start = i; }
             }
           }
-          const used = Array(n).fill(false); used[start]=true; const ord=[start];
+          const used = Array(n).fill(false); used[start]=true;
+          const ord = [start];
           for(let step=1; step<n; step++){
             const i = ord[ord.length-1];
-            let best=-1, cost=Infinity;
-            for(let j=0;j<n;j++){ if(used[j]) continue; const c=M[i][j]; if(c<cost){ cost=c; best=j; } }
-            if(best===-1) best = used.indexOf(false);
-            used[best]=true; ord.push(best);
+            let bestJ=-1, best=Infinity;
+            for(let j=0;j<n;j++){
+              if(used[j]) continue;
+              const c = M[i][j];
+              if(c < best){ best=c; bestJ=j; }
+            }
+            if(bestJ === -1){ bestJ = used.indexOf(false); }
+            used[bestJ] = true; ord.push(bestJ);
           }
           bestOrder = ord;
-          bestCost  = costOfOrder(ord, M, includeStart?baseTo:[], returnTo?toBase:[]);
+          bestCost = costOfOrder(ord, M, includeStart?baseTo:[], returnTo?toBase:[]);
         }
 
-        if(!isFinite(bestCost)){ toast('Could not compute a valid order. Check addresses.'); return; }
+        if(!isFinite(bestCost)){
+          toast('Could not compute a valid order. Check addresses and try again.');
+          return;
+        }
 
-        // Reorder DOM to match best order
-        const wrap = $('#lanes');
-        const nodes = Array.from($('#lanes').querySelectorAll('.lane'));
-        bestOrder.map(i=>nodes[i]).forEach(n=>wrap.appendChild(n));
+        // Reorder DOM to the best order
+        const wrap  = $('#lanes');
+        const nodes = Array.from($('#lanes').querySelectorAll('.lane')); // static snapshot
+        bestOrder.map(i => nodes[i]).forEach(n => wrap.appendChild(n));
         refreshLaneIndices(); persist();
 
         toast(`Order optimized. Est. deadhead: ${fmtMi(bestCost)} mi`);
+
+        // Recalculate map and results for the new order
         await calculateAndMap();
       }catch(err){
         console.warn('optimizeOrder error:', err);
-        alert('Could not optimize (API limits or invalid addresses). Try again.');
+        alert('Could not optimize (API limits or address errors). Try again.');
       }
     }
+
     // ================== END OPTIMIZER ==================
 
-    // ---- RATE HELPER (Patch 7) ----
-    const _loadedCache = new Map(); // "A|B" -> miles
-
-    async function loadedMiles(a, b){
-      const key = a+'|'+b;
-      if(_loadedCache.has(key)) return _loadedCache.get(key);
-      // Distance Matrix first
-      let miles = await new Promise((resolve)=>{
-        if(!dmService){ resolve(Infinity); return; }
-        dmService.getDistanceMatrix(
-          {origins:[a], destinations:[b], travelMode:'DRIVING', region:'US', unitSystem:google.maps.UnitSystem.IMPERIAL},
-          (res, status)=>{
-            if(status==='OK' && res?.rows?.[0]?.elements?.[0]?.status==='OK'){
-              resolve(res.rows[0].elements[0].distance.value / 1609.344);
-            } else resolve(Infinity);
-          }
-        );
-      });
-      if(!isFinite(miles)){
-        try{ const r = await routeMiles(a,b); miles = r.miles; }catch{ miles = Infinity; }
-      }
-      _loadedCache.set(key, miles);
-      return miles;
-    }
-
-    // Suggest by distance band from Saved Lanes
-    async function suggestFromSaved(origin, destination){
-      try{
-        const saved = JSON.parse(localStorage.getItem('farmpro_saved')||'[]');
-        if(!Array.isArray(saved) || !saved.length) return null;
-        const currLoaded = await loadedMiles(origin, destination);
-        if(!isFinite(currLoaded)) return null;
-
-        const band = currLoaded<=100? '0–100' : currLoaded<=200? '100–200' : currLoaded<=400? '200–400' : '400+';
-        const inBand = [];
-        for(const s of saved){
-          const m = await loadedMiles(s.origin, s.destination);
-          if(!isFinite(m)) continue;
-          const b = m<=100? '0–100' : m<=200? '100–200' : m<=400? '200–400' : '400+';
-          if(b===band && s.rate) inBand.push(s.rate);
-        }
-        if(!inBand.length) return {band, avgRatePerTon:null, samples:0};
-        const avg = inBand.reduce((a,b)=>a+b,0)/inBand.length;
-        return {band, avgRatePerTon:avg, samples:inBand.length};
-      }catch{ return null; }
-    }
-
-    function computeRatePerTon({loaded, deadhead, tons, rpm, perMile, roundTo}){
-      const miles = (Number(loaded)||0) + (Number(deadhead)||0);
-      const target = (rpm && rpm>0) ? rpm : (perMile && perMile>0) ? perMile : 0;
-      if(!miles || !tons || !target) return 0;
-      const dollars = target * miles; // numerically the same for RPM or $/mile
-      let perTon = dollars / tons;
-      if(roundTo>0) perTon = Math.round(perTon / roundTo) * roundTo;
-      return perTon;
-    }
-
-    async function openRateHelper(laneNode){
-      const o = laneNode.querySelector('.origin').value.trim();
-      const d = laneNode.querySelector('.destination').value.trim();
-      const t = parseFloat(laneNode.querySelector('.tons').value)||26;
-
-      if(!o || !d){ alert('Please enter Origin and Destination first.'); return; }
-
-      const tmpl = $('#rateHelperTmpl');
-      const modal = tmpl.content.firstElementChild.cloneNode(true);
-      document.body.appendChild(modal);
-
-      const el = sel => modal.querySelector(sel);
-      el('#rhLaneName').textContent = `${o} → ${d}`;
-      el('#rhTons').value = t.toFixed(1);
-
-      el('#rhLoaded').value = Math.round(await loadedMiles(o,d));
-      let guessDH = 0;
-      const lanes = $$('#lanes .lane');
-      const idx = lanes.indexOf(laneNode);
-      const base = $('#base').value.trim();
-      const includeStart = $('#includeStartDH').checked && !!base;
-      if(idx===0 && includeStart && base){
-        guessDH = Math.round(await deadheadMiles(base, o));
-      } else if(idx>0){
-        const prev = lanes[idx-1];
-        const prevDest = prev.querySelector('.destination').value.trim();
-        if(prevDest) guessDH = Math.round(await deadheadMiles(prevDest, o));
-      }
-      el('#rhDeadhead').value = isFinite(guessDH)? guessDH : 0;
-
-      const hint = await suggestFromSaved(o,d);
-      if(hint && hint.avgRatePerTon){
-        el('#rhSavedHint').textContent = `$${hint.avgRatePerTon.toFixed(2)} / ton (band ${hint.band}, ${hint.samples} sample${hint.samples>1?'s':''})`;
-      } else {
-        el('#rhSavedHint').textContent = 'No nearby samples in Saved Lanes';
-      }
-
-      const out = el('#rhOut');
-      function recalc(){
-        const perTon = computeRatePerTon({
-          loaded: Number(el('#rhLoaded').value),
-          deadhead: Number(el('#rhDeadhead').value),
-          tons: Number(el('#rhTons').value),
-          rpm: Number(el('#rhRPM').value),
-          perMile: Number(el('#rhPerMile').value),
-          roundTo: Number(el('#rhRound').value)
-        });
-        out.textContent = isFinite(perTon)&&perTon>0 ? `$${perTon.toFixed(2)}` : '$0.00';
-      }
-      modal.querySelectorAll('input,select').forEach(i=> i.addEventListener('input', recalc));
-      recalc();
-
-      el('#rhApply').addEventListener('click', ()=>{
-        const val = parseFloat(out.textContent.replace(/[$,]/g,''))||0;
-        if(val>0){
-          laneNode.querySelector('.rate').value = val.toFixed(2);
-          persist();
-          toast('Applied recommended $/ton to lane');
-          modal.remove();
-        } else {
-          alert('Enter a target RPM or $/mile and check tons/miles.');
-        }
-      });
-      el('#rhClose').addEventListener('click', ()=> modal.remove());
-      modal.addEventListener('click', (e)=>{ if(e.target.classList.contains('modal')) modal.remove(); });
-    }
-    // ---- END RATE HELPER ----
-
-    // ---- Calculate & map (resilient) ----
+    // ---- Resilient version: never aborts the run; logs and continues ----
     async function calculateAndMap(){
       const lanes = readLanes();
       if(lanes.length===0){ alert('Add at least one lane'); return; }
@@ -745,50 +538,67 @@
       const perLane = [];
       let prevDest = null;
 
+      // optional deadhead: Base -> first origin
       if(includeStartDH){
         try{
           const {miles, path} = await routeMiles(base, lanes[0].origin);
-          totals.deadhead += miles; drawPath(path, {color:'#808080', weight:4, dash:true});
+          totals.deadhead += miles;
+          drawPath(path, {color:'#808080', weight:4, dash:true});
           prevDest = lanes[0].origin;
-        }catch(e){ console.warn('Start DH failed:', e); toast('Could not route Base → first origin (continuing)'); prevDest = lanes[0].origin; }
+        }catch(e){
+          console.warn('Start DH failed:', e); toast('Could not route Base → first origin (continuing)');
+          prevDest = lanes[0].origin; // continue sequence
+        }
       }
 
+      // Iterate lanes
       for(let i=0;i<lanes.length;i++){
         const L = lanes[i];
 
+        // deadhead prev dest -> this origin
         if(i>0 || (!includeStartDH && i===0 && prevDest)){
           const from = perLane.length ? perLane[perLane.length-1].destination : prevDest;
           if(from){
             try{
               const {miles, path} = await routeMiles(from, L.origin);
               totals.deadhead += miles; drawPath(path, {color:'#808080', weight:4, dash:true});
-            }catch(e){ console.warn(`DH ${from} → ${L.origin} failed:`, e); toast(`Could not route deadhead to ${L.origin} (continuing)`); }
+            }catch(e){
+              console.warn(`DH ${from} → ${L.origin} failed:`, e);
+              toast(`Could not route deadhead to ${L.origin} (continuing)`);
+            }
           }
         }
 
+        // loaded miles for this lane
         try{
           const {miles, path} = await routeMiles(L.origin, L.destination);
           totals.loaded += miles; drawPath(path, {color:'#1a73e8', weight:5});
           const gross = (Number(L.rate)||0) * (Number(L.tons)||0);
           totals.gross += gross;
-          perLane.push({ index:i+1, origin:L.origin, destination:L.destination, loaded:miles, deadhead:0, rate:Number(L.rate)||0, tons:Number(L.tons)||0, gross });
+          perLane.push({
+            index:i+1, origin:L.origin, destination:L.destination,
+            loaded:miles, deadhead:0, rate:Number(L.rate)||0, tons:Number(L.tons)||0, gross
+          });
         }catch(e){
           console.warn(`Loaded ${L.origin} → ${L.destination} failed:`, e);
-          toast(`Could not route ${L.origin} → ${L.destination} (0 mi)`);
+          toast(`Could not route ${L.origin} → ${L.destination} (counting as 0 mi)`);
           const gross = (Number(L.rate)||0) * (Number(L.tons)||0);
           totals.gross += gross;
-          perLane.push({ index:i+1, origin:L.origin, destination:L.destination, loaded:0, deadhead:0, rate:Number(L.rate)||0, tons:Number(L.tons)||0, gross });
+          perLane.push({
+            index:i+1, origin:L.origin, destination:L.destination,
+            loaded:0, deadhead:0, rate:Number(L.rate)||0, tons:Number(L.tons)||0, gross
+          });
         }
       }
 
-      // per-lane deadhead numbers
+      // per-lane deadhead miles (numbers only)
       perLane.forEach(pl=>pl.deadhead=0);
       const dhPairs=[];
       if(includeStartDH && perLane[0]) dhPairs.push([base, perLane[0].origin, 0]);
       for(let i=1;i<perLane.length;i++) dhPairs.push([perLane[i-1].destination, perLane[i].origin, i]);
 
       const dhPromises = dhPairs.map(([a,b,idx]) =>
-        routeMiles(a,b).then(r=>({idx,miles:r.miles})).catch(()=>({idx,miles:0}))
+        routeMiles(a,b).then(r=>({idx,miles:r.miles})).catch(err=>{console.warn('DH calc failed', err); return {idx,miles:0};})
       );
       const dhRes = await Promise.all(dhPromises);
       dhRes.forEach(({idx,miles})=>{ if(idx>=0 && perLane[idx]) perLane[idx].deadhead += miles; });
@@ -800,7 +610,10 @@
           const last = perLane[perLane.length-1];
           const {miles, path} = await routeMiles(last.destination, base);
           finalDhMiles = miles; totals.deadhead += miles; drawPath(path, {color:'#808080', weight:4, dash:true});
-        }catch(e){ console.warn('Return-to-base failed:', e); }
+        }catch(e){
+          console.warn('Return-to-base failed:', e);
+          toast('Could not route final deadhead back to Base (continuing)');
+        }
       }
 
       lastCompute = { perLane, totals, finalDhMiles, base, includeStartDH, returnToBase, url: location.href };
@@ -863,118 +676,6 @@
       }
     }
 
-    // ===== Saved Lanes: storage & UI (Patches 3 & 4 helpers) =====
-    function loadLibrary(){
-      try{ library = JSON.parse(localStorage.getItem('farmpro_saved')||'[]'); }catch(_){ library=[]; }
-    }
-    function persistLibrary(){ localStorage.setItem('farmpro_saved', JSON.stringify(library)); }
-    function addToLibrary(l){ library.push(l); persistLibrary(); renderLibrary(); }
-    function saveSelectedLane(){
-      const node = $('#lanes .lane.selected') || $('#lanes .lane');
-      if(!node){ alert('Add a lane first'); return; }
-      const o = node.querySelector('.origin').value.trim();
-      const d = node.querySelector('.destination').value.trim();
-      const rate = parseFloat(node.querySelector('.rate').value)||0;
-      const tons = parseFloat(node.querySelector('.tons').value)||0;
-      if(!o||!d){ alert('Enter origin and destination first'); return; }
-      addToLibrary({origin:o, destination:d, rate, tons});
-      toast('Saved to library');
-    }
-    function insertSavedLaneAt(laneData, afterNode){
-      const wrap = $('#lanes');
-      const tmpl = $('#laneTmpl');
-      const node = tmpl.content.firstElementChild.cloneNode(true);
-      wrap.insertBefore(node, afterNode ? afterNode.nextSibling : null);
-      node.querySelector('.origin').value = laneData.origin||'';
-      node.querySelector('.destination').value = laneData.destination||'';
-      node.querySelector('.rate').value = laneData.rate??'';
-      node.querySelector('.tons').value = laneData.tons??'';
-      const o = node.querySelector('.origin'); const d = node.querySelector('.destination');
-      safeAutocomplete(o); safeAutocomplete(d);
-      node.querySelector('.del').addEventListener('click', ()=>{ node.remove(); refreshLaneIndices(); persist(); });
-      node.querySelector('.moveUp').addEventListener('click', ()=> moveLane(node,-1));
-      node.querySelector('.moveDown').addEventListener('click', ()=> moveLane(node,+1));
-      node.querySelector('.rateHelp').addEventListener('click', ()=> openRateHelper(node));
-      node.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain','drag'); node.classList.add('dragging'); });
-      node.addEventListener('dragend',   ()=>{ node.classList.remove('dragging'); persist(); refreshLaneIndices(); });
-      node.addEventListener('focusin', ()=>{ $$('#lanes .lane').forEach(x=>x.classList.remove('selected')); node.classList.add('selected'); });
-      node.addEventListener('click',   ()=>{ $$('#lanes .lane').forEach(x=>x.classList.remove('selected')); node.classList.add('selected'); });
-      $$('.origin,.destination,.rate,.tons', node).forEach(inp=>{
-        inp.addEventListener('change', persist, {passive:true});
-        inp.addEventListener('blur', persist, {passive:true});
-      });
-      refreshLaneIndices(); persist();
-    }
-    function renderLibrary(){
-      const list = $('#savedList');
-      list.innerHTML = '';
-      library.forEach((L, idx)=>{
-        const item = document.createElement('div');
-        item.className = 'saved-item';
-        item.draggable = true;
-        item.innerHTML = `
-          <div class="handle" title="Drag to reorder">≡</div>
-          <div class="meta"><div class="t">${escapeHtml(L.origin||'')} → ${escapeHtml(L.destination||'')}</div>
-            <small class="muted">$${(L.rate||0).toFixed(2)}/ton · ${(L.tons||0).toFixed(1)}t</small>
-          </div>
-          <div class="saved-actions">
-            <button class="iconbtn" title="Insert into plan">➕</button>
-            <button class="iconbtn" title="Delete">🗑</button>
-          </div>`;
-        item.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain','lib'); item.classList.add('dragging'); });
-        item.addEventListener('dragend',   ()=>{ item.classList.remove('dragging'); });
-        list.appendChild(item);
-
-        item.querySelector('.saved-actions .iconbtn').addEventListener('click', ()=>{
-          const after = $('#lanes .lane.selected');
-          insertSavedLaneAt(L, after || $$('#lanes .lane').at(-1) || null);
-          toast('Inserted into plan');
-        });
-        item.querySelectorAll('.saved-actions .iconbtn')[1].addEventListener('click', ()=>{
-          if(!confirm('Remove from saved lanes?')) return;
-          library.splice(idx,1); persistLibrary(); renderLibrary();
-        });
-      });
-
-      list.addEventListener('dragover', e=>{
-        e.preventDefault();
-        const dragging = list.querySelector('.saved-item.dragging');
-        if(!dragging) return;
-        const siblings = [...list.querySelectorAll('.saved-item:not(.dragging)')];
-        const next = siblings.find(sib => e.clientY <= sib.getBoundingClientRect().top + sib.offsetHeight/2);
-        list.insertBefore(dragging, next || null);
-      });
-      list.addEventListener('drop', ()=>{
-        const items = [...list.querySelectorAll('.saved-item')];
-        const reordered = items.map(el=>{
-          const t = el.querySelector('.meta .t').textContent;
-          const [origin, destination] = t.split(' → ').map(s=>s.trim());
-          const mm = el.querySelector('small').textContent.match(/\$(.*)\/ton.+?([\d.]+)t/);
-          const rate = mm ? parseFloat(mm[1]) : 0;
-          const tons = mm ? parseFloat(mm[2]) : 0;
-          return {origin,destination,rate,tons};
-        });
-        library = reordered; persistLibrary(); renderLibrary();
-      });
-    }
-    function exportLibrary(){
-      const blob = new Blob([JSON.stringify(library,null,2)], {type:'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = Object.assign(document.createElement('a'), {href:url, download:'saved_lanes.json'});
-      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-    }
-    function importLibrary(){
-      const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json';
-      inp.onchange = ()=>{
-        const f = inp.files[0]; if(!f) return;
-        const r = new FileReader();
-        r.onload = ()=>{ try{ const arr = JSON.parse(r.result||'[]'); if(Array.isArray(arr)){ library = arr; persistLibrary(); renderLibrary(); toast('Imported saved lanes'); } }catch(e){ alert('Invalid JSON'); } };
-        r.readAsText(f);
-      };
-      inp.click();
-    }
-    // ===== End Saved Lanes =====
-
     function exportCSV(){
       const perLane = collectPerLaneFromTable();
       if(!perLane.length){ alert('No results yet. Click Calculate & Map first.'); return; }
@@ -1036,7 +737,7 @@
       pt.push('Open in calculator: '+url);
       const plainText = pt.join('\n');
 
-      const esc = s => (s??'').toString().replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+      const esc = s => (s??'').toString().replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
       const rowsHtml = perLane.map(L=>{
         const rpmLane = L.gross / (L.loaded+L.deadhead||1);
         return `<tr>
@@ -1121,14 +822,20 @@
   <\/script>
 </body></html>`;
 
+      // Open via a Blob URL (works better on iOS/Android; avoids document.write)
       const blob = new Blob([html], { type: 'text/html' });
       const blobUrl = URL.createObjectURL(blob);
-      const w = window.open(blobUrl, '_blank', 'noopener');
+      const w = window.open(blobUrl, '_blank', 'noopener');  // open immediately on click gesture
       if(!w){
+        // Fallback: create a temporary link if the popup was blocked
         const a = document.createElement('a');
-        a.href = blobUrl; a.target = '_blank'; a.rel = 'noopener'; a.download = 'proposal.html';
+        a.href = blobUrl;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.download = 'proposal.html';
         document.body.appendChild(a); a.click(); a.remove();
       }
+      // Revoke later to avoid cutting off the new tab load on Safari
       setTimeout(()=>URL.revokeObjectURL(blobUrl), 60000);
     }
 
@@ -1152,14 +859,19 @@
     }
 
     function escapeHtml(str){
-      return (str||'').replace(/[&<>"']/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]));
+      return str.replace(/[&<>"]/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s]));
     }
 
-    // ---------- Persistence ----------
     function persist(){
-      const data = { base: $('#base').value.trim(), includeStartDH: $('#includeStartDH').checked, returnToBase: $('#returnToBase').checked, lanes: readLanes() };
+      const data = {
+        base: $('#base').value.trim(),
+        includeStartDH: $('#includeStartDH').checked,
+        returnToBase: $('#returnToBase').checked,
+        lanes: readLanes()
+      };
       localStorage.setItem('farmpro_lanes', JSON.stringify(data));
     }
+
     function loadFromStorage(){
       try{
         const raw = localStorage.getItem('farmpro_lanes');
@@ -1174,12 +886,19 @@
         return true;
       }catch(e){ addLane(); return true; }
     }
+
     function updateShareURL(){
-      const payload = { base: $('#base').value.trim(), i: $('#includeStartDH').checked?1:0, r: $('#returnToBase').checked?1:0, lanes: readLanes() };
+      const payload = {
+        base: $('#base').value.trim(),
+        i: $('#includeStartDH').checked?1:0,
+        r: $('#returnToBase').checked?1:0,
+        lanes: readLanes()
+      };
       const qp = new URLSearchParams({state: btoa(unescape(encodeURIComponent(JSON.stringify(payload))))});
       const url = location.origin + location.pathname + '?' + qp.toString();
       history.replaceState(null,'',url);
     }
+
     function loadFromURL(){
       const s = new URLSearchParams(location.search).get('state');
       if(!s) return false;
