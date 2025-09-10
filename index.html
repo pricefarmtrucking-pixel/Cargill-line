@@ -17,7 +17,7 @@
     .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .controls{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
     label{font-size:12px;color:var(--muted)}
-    input[type="text"], input[type="number"]{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #203044;background:#0e1520;color:var(--text)}
+    input[type="text"], input[type="number"]{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #203044;background:#0e1520;color:#var(--text)}
     input[type="checkbox"]{transform:scale(1.1)}
     .btn{padding:10px 12px;border-radius:10px;border:1px solid #2a3a4f;background:#162233;color:#fff;cursor:pointer}
     .btn:hover{filter:brightness(1.1)}
@@ -33,7 +33,7 @@
     .lane small{color:var(--muted)}
     .iconbtn{background:transparent;border:1px solid #34465f;border-radius:8px;color:#a3b6ce;padding:6px 8px;cursor:pointer}
     .iconbtn:hover{background:#182334}
-    /* Lane # badge (Patch 5: clearer placement) */
+    /* Lane # badge (Patch 5) */
     .lane .laneNum{
       position:absolute;left:-10px;top:-10px;background:#0d63ff;border:2px solid #16345f;
       color:#fff;font-weight:700;font-size:12px;width:28px;height:28px;border-radius:999px;
@@ -65,6 +65,20 @@
     .handle{cursor:grab;padding:4px 6px;border:1px dashed #2a3a4f;border-radius:8px;background:#0b1320;color:#9fb0c2}
     .ghostbtn{background:#101827;border-color:#243244;color:#cfe2f7}
     .savebtn{background:#0b1320;border-color:#2a3a4f}
+
+    /* --- Rate Helper modal (Patch 7) --- */
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99999}
+    .modal .card{background:#0e1520;border:1px solid #233247;border-radius:14px;max-width:560px;width:92vw;padding:14px}
+    .modal h4{margin:0 0 8px;font-size:16px;color:#cfe2f7}
+    .modal .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .modal .row{margin:6px 0}
+    .modal label{font-size:12px;color:var(--muted)}
+    .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+    .modal .pillnote{font-size:12px;color:#9fb0c2;background:#0b1320;border:1px solid #22334a;border-radius:999px;padding:3px 8px;display:inline-block}
+    .modal .out{font-weight:700;font-size:16px}
+    .modal .warn{color:#ffcc88}
+    .modal .muted{color:#9fb0c2}
+    .iconbtn.rate{border-color:#2a3a4f;color:#dbe7f7}
   </style>
 </head>
 <body>
@@ -159,6 +173,7 @@
       <div class="row" style="justify-content:space-between;align-items:center">
         <h3>Lane <span class="laneIndex"></span> <small class="muted">(Origin → Destination)</small></h3>
         <div class="row">
+          <button type="button" class="iconbtn rate rateHelp" title="Rate helper">Rate</button>
           <button type="button" class="iconbtn moveUp" title="Move up">▲</button>
           <button type="button" class="iconbtn moveDown" title="Move down">▼</button>
           <button type="button" class="iconbtn del" title="Remove lane">Remove</button>
@@ -187,9 +202,73 @@
     </div>
   </template>
 
+  <!-- Rate Helper modal (Patch 7) -->
+  <template id="rateHelperTmpl">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="card">
+        <h4>Rate Helper</h4>
+        <div class="muted" style="margin-bottom:6px">
+          <span class="pillnote" id="rhLaneName"></span>
+          <span style="margin-left:8px" class="muted">Auto-estimates miles with Google (you can override).</span>
+        </div>
+        <div class="grid">
+          <div>
+            <div class="row">
+              <label>Loaded miles</label>
+              <input id="rhLoaded" type="number" step="1" />
+            </div>
+            <div class="row">
+              <label>Deadhead miles (for this lane)</label>
+              <input id="rhDeadhead" type="number" step="1" />
+            </div>
+            <div class="row">
+              <label>Tons</label>
+              <input id="rhTons" type="number" step="0.1" />
+            </div>
+          </div>
+          <div>
+            <div class="row">
+              <label>Target (choose one)</label>
+              <div class="row" style="gap:6px">
+                <span class="pillnote">$<input id="rhRPM" type="number" step="0.01" style="width:90px"> RPM</span>
+                <span class="pillnote">$<input id="rhPerMile" type="number" step="0.01" style="width:90px"> /mile</span>
+              </div>
+            </div>
+            <div class="row">
+              <label>Rounding</label>
+              <select id="rhRound">
+                <option value="0">No rounding</option>
+                <option value="0.05">Nearest $0.05</option>
+                <option value="0.10">Nearest $0.10</option>
+                <option value="0.25" selected>Nearest $0.25</option>
+                <option value="0.50">Nearest $0.50</option>
+                <option value="1">Nearest $1.00</option>
+              </select>
+            </div>
+            <div class="row">
+              <label>Suggestion from Saved Lanes</label>
+              <div class="muted" id="rhSavedHint">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:8px">
+          <div class="muted">Formula: <code class="warn">$ / ton = (Target × (Loaded + Deadhead)) ÷ Tons</code></div>
+        </div>
+        <div class="row" style="align-items:center;justify-content:space-between;margin-top:4px">
+          <div>Recommended $/ton: <span id="rhOut" class="out">$0.00</span></div>
+          <div class="actions">
+            <button class="btn ghost" id="rhClose">Close</button>
+            <button class="btn success" id="rhApply">Apply to lane</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
   <script>
     let map, bounds, dirService;
-    let dmService = null; // used by optimizer DM-first
+    let dmService = null; // used by optimizer & rate helper (DM-first)
     const polylines = [];
     let lastCompute = null;
     let library = []; // Saved lanes (Patch 3)
@@ -286,7 +365,7 @@
         });
         bounds = new google.maps.LatLngBounds();
         dirService = new google.maps.DirectionsService();
-        dmService  = new google.maps.DistanceMatrixService(); // for optimizer
+        dmService  = new google.maps.DistanceMatrixService(); // for optimizer & rate helper
         safeAutocomplete($('#base'));
       }catch(e){ console.warn('Maps init failed:', e); }
     }
@@ -310,6 +389,7 @@
       node.querySelector('.del').addEventListener('click', ()=>{ node.remove(); refreshLaneIndices(); persist(); });
       node.querySelector('.moveUp').addEventListener('click', ()=> moveLane(node,-1));
       node.querySelector('.moveDown').addEventListener('click', ()=> moveLane(node,+1));
+      node.querySelector('.rateHelp').addEventListener('click', ()=> openRateHelper(node)); // Patch 7 hook
 
       node.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain','drag'); node.classList.add('dragging'); });
       node.addEventListener('dragend',   ()=>{ node.classList.remove('dragging'); persist(); refreshLaneIndices(); });
@@ -515,7 +595,132 @@
     }
     // ================== END OPTIMIZER ==================
 
-    // ---- Calculate & map (unchanged logic, resilient) ----
+    // ---- RATE HELPER (Patch 7) ----
+    const _loadedCache = new Map(); // "A|B" -> miles
+
+    async function loadedMiles(a, b){
+      const key = a+'|'+b;
+      if(_loadedCache.has(key)) return _loadedCache.get(key);
+      // Distance Matrix first
+      let miles = await new Promise((resolve)=>{
+        if(!dmService){ resolve(Infinity); return; }
+        dmService.getDistanceMatrix(
+          {origins:[a], destinations:[b], travelMode:'DRIVING', region:'US', unitSystem:google.maps.UnitSystem.IMPERIAL},
+          (res, status)=>{
+            if(status==='OK' && res?.rows?.[0]?.elements?.[0]?.status==='OK'){
+              resolve(res.rows[0].elements[0].distance.value / 1609.344);
+            } else resolve(Infinity);
+          }
+        );
+      });
+      if(!isFinite(miles)){
+        try{ const r = await routeMiles(a,b); miles = r.miles; }catch{ miles = Infinity; }
+      }
+      _loadedCache.set(key, miles);
+      return miles;
+    }
+
+    // Suggest by distance band from Saved Lanes
+    async function suggestFromSaved(origin, destination){
+      try{
+        const saved = JSON.parse(localStorage.getItem('farmpro_saved')||'[]');
+        if(!Array.isArray(saved) || !saved.length) return null;
+        const currLoaded = await loadedMiles(origin, destination);
+        if(!isFinite(currLoaded)) return null;
+
+        const band = currLoaded<=100? '0–100' : currLoaded<=200? '100–200' : currLoaded<=400? '200–400' : '400+';
+        const inBand = [];
+        for(const s of saved){
+          const m = await loadedMiles(s.origin, s.destination);
+          if(!isFinite(m)) continue;
+          const b = m<=100? '0–100' : m<=200? '100–200' : m<=400? '200–400' : '400+';
+          if(b===band && s.rate) inBand.push(s.rate);
+        }
+        if(!inBand.length) return {band, avgRatePerTon:null, samples:0};
+        const avg = inBand.reduce((a,b)=>a+b,0)/inBand.length;
+        return {band, avgRatePerTon:avg, samples:inBand.length};
+      }catch{ return null; }
+    }
+
+    function computeRatePerTon({loaded, deadhead, tons, rpm, perMile, roundTo}){
+      const miles = (Number(loaded)||0) + (Number(deadhead)||0);
+      const target = (rpm && rpm>0) ? rpm : (perMile && perMile>0) ? perMile : 0;
+      if(!miles || !tons || !target) return 0;
+      const dollars = target * miles; // numerically the same for RPM or $/mile
+      let perTon = dollars / tons;
+      if(roundTo>0) perTon = Math.round(perTon / roundTo) * roundTo;
+      return perTon;
+    }
+
+    async function openRateHelper(laneNode){
+      const o = laneNode.querySelector('.origin').value.trim();
+      const d = laneNode.querySelector('.destination').value.trim();
+      const t = parseFloat(laneNode.querySelector('.tons').value)||26;
+
+      if(!o || !d){ alert('Please enter Origin and Destination first.'); return; }
+
+      const tmpl = $('#rateHelperTmpl');
+      const modal = tmpl.content.firstElementChild.cloneNode(true);
+      document.body.appendChild(modal);
+
+      const el = sel => modal.querySelector(sel);
+      el('#rhLaneName').textContent = `${o} → ${d}`;
+      el('#rhTons').value = t.toFixed(1);
+
+      el('#rhLoaded').value = Math.round(await loadedMiles(o,d));
+      let guessDH = 0;
+      const lanes = $$('#lanes .lane');
+      const idx = lanes.indexOf(laneNode);
+      const base = $('#base').value.trim();
+      const includeStart = $('#includeStartDH').checked && !!base;
+      if(idx===0 && includeStart && base){
+        guessDH = Math.round(await deadheadMiles(base, o));
+      } else if(idx>0){
+        const prev = lanes[idx-1];
+        const prevDest = prev.querySelector('.destination').value.trim();
+        if(prevDest) guessDH = Math.round(await deadheadMiles(prevDest, o));
+      }
+      el('#rhDeadhead').value = isFinite(guessDH)? guessDH : 0;
+
+      const hint = await suggestFromSaved(o,d);
+      if(hint && hint.avgRatePerTon){
+        el('#rhSavedHint').textContent = `$${hint.avgRatePerTon.toFixed(2)} / ton (band ${hint.band}, ${hint.samples} sample${hint.samples>1?'s':''})`;
+      } else {
+        el('#rhSavedHint').textContent = 'No nearby samples in Saved Lanes';
+      }
+
+      const out = el('#rhOut');
+      function recalc(){
+        const perTon = computeRatePerTon({
+          loaded: Number(el('#rhLoaded').value),
+          deadhead: Number(el('#rhDeadhead').value),
+          tons: Number(el('#rhTons').value),
+          rpm: Number(el('#rhRPM').value),
+          perMile: Number(el('#rhPerMile').value),
+          roundTo: Number(el('#rhRound').value)
+        });
+        out.textContent = isFinite(perTon)&&perTon>0 ? `$${perTon.toFixed(2)}` : '$0.00';
+      }
+      modal.querySelectorAll('input,select').forEach(i=> i.addEventListener('input', recalc));
+      recalc();
+
+      el('#rhApply').addEventListener('click', ()=>{
+        const val = parseFloat(out.textContent.replace(/[$,]/g,''))||0;
+        if(val>0){
+          laneNode.querySelector('.rate').value = val.toFixed(2);
+          persist();
+          toast('Applied recommended $/ton to lane');
+          modal.remove();
+        } else {
+          alert('Enter a target RPM or $/mile and check tons/miles.');
+        }
+      });
+      el('#rhClose').addEventListener('click', ()=> modal.remove());
+      modal.addEventListener('click', (e)=>{ if(e.target.classList.contains('modal')) modal.remove(); });
+    }
+    // ---- END RATE HELPER ----
+
+    // ---- Calculate & map (resilient) ----
     async function calculateAndMap(){
       const lanes = readLanes();
       if(lanes.length===0){ alert('Add at least one lane'); return; }
@@ -671,17 +876,16 @@
       const tmpl = $('#laneTmpl');
       const node = tmpl.content.firstElementChild.cloneNode(true);
       wrap.insertBefore(node, afterNode ? afterNode.nextSibling : null);
-      // populate
       node.querySelector('.origin').value = laneData.origin||'';
       node.querySelector('.destination').value = laneData.destination||'';
       node.querySelector('.rate').value = laneData.rate??'';
       node.querySelector('.tons').value = laneData.tons??'';
-      // wire events
       const o = node.querySelector('.origin'); const d = node.querySelector('.destination');
       safeAutocomplete(o); safeAutocomplete(d);
       node.querySelector('.del').addEventListener('click', ()=>{ node.remove(); refreshLaneIndices(); persist(); });
       node.querySelector('.moveUp').addEventListener('click', ()=> moveLane(node,-1));
       node.querySelector('.moveDown').addEventListener('click', ()=> moveLane(node,+1));
+      node.querySelector('.rateHelp').addEventListener('click', ()=> openRateHelper(node));
       node.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain','drag'); node.classList.add('dragging'); });
       node.addEventListener('dragend',   ()=>{ node.classList.remove('dragging'); persist(); refreshLaneIndices(); });
       node.addEventListener('focusin', ()=>{ $$('#lanes .lane').forEach(x=>x.classList.remove('selected')); node.classList.add('selected'); });
@@ -708,25 +912,21 @@
             <button class="iconbtn" title="Insert into plan">➕</button>
             <button class="iconbtn" title="Delete">🗑</button>
           </div>`;
-        // DnD reorder
         item.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain','lib'); item.classList.add('dragging'); });
         item.addEventListener('dragend',   ()=>{ item.classList.remove('dragging'); });
         list.appendChild(item);
 
-        // Insert
         item.querySelector('.saved-actions .iconbtn').addEventListener('click', ()=>{
           const after = $('#lanes .lane.selected');
           insertSavedLaneAt(L, after || $$('#lanes .lane').at(-1) || null);
           toast('Inserted into plan');
         });
-        // Delete (second button)
         item.querySelectorAll('.saved-actions .iconbtn')[1].addEventListener('click', ()=>{
           if(!confirm('Remove from saved lanes?')) return;
           library.splice(idx,1); persistLibrary(); renderLibrary();
         });
       });
 
-      // dragover for library list itself
       list.addEventListener('dragover', e=>{
         e.preventDefault();
         const dragging = list.querySelector('.saved-item.dragging');
@@ -736,7 +936,6 @@
         list.insertBefore(dragging, next || null);
       });
       list.addEventListener('drop', ()=>{
-        // persist new order
         const items = [...list.querySelectorAll('.saved-item')];
         const reordered = items.map(el=>{
           const t = el.querySelector('.meta .t').textContent;
@@ -828,7 +1027,7 @@
       pt.push('Open in calculator: '+url);
       const plainText = pt.join('\n');
 
-      const esc = s => (s??'').toString().replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+      const esc = s => (s??'').toString().replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
       const rowsHtml = perLane.map(L=>{
         const rpmLane = L.gross / (L.loaded+L.deadhead||1);
         return `<tr>
@@ -943,7 +1142,9 @@
       });
     }
 
-    function escapeHtml(str){ return (str||'').replace(/[&<>"]/g, s=>({"&":"&amp;","<":"&lt;","<":"&lt;","\"":"&quot;",">":"&gt;"}[s]||s)); }
+    function escapeHtml(str){
+      return (str||'').replace(/[&<>"']/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]));
+    }
 
     // ---------- Persistence ----------
     function persist(){
