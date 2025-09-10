@@ -17,7 +17,15 @@
     .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .controls{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
     label{font-size:12px;color:var(--muted)}
-    input[type="text"], input[type="number"]{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #203044;background:#0e1520;color:#var(--text)}
+   input[type="text"], input[type="number"]{
+  width:100%;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid #203044;
+  background:#0e1520;
+  color:var(--text);        /* ✅ correct */
+  caret-color:var(--text);  /* nice to have */
+}
     input[type="checkbox"]{transform:scale(1.1)}
     .btn{padding:10px 12px;border-radius:10px;border:1px solid #2a3a4f;background:#162233;color:#fff;cursor:pointer}
     .btn:hover{filter:brightness(1.1)}
