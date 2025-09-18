@@ -32,7 +32,11 @@
     .lane small{color:var(--muted)}
     .iconbtn{background:transparent;border:1px solid #34465f;border-radius:8px;color:#a3b6ce;padding:6px 8px;cursor:pointer}
     .iconbtn:hover{background:#182334}
-    #map{position:absolute;inset:0}
+    #map{
+  position:relative;   /* no absolute positioning */
+  width:100%;
+  height:50vh;         /* half the viewport height */
+}
     table{width:100%;border-collapse:collapse;margin-top:10px}
     th,td{padding:8px;border-bottom:1px solid #223045;text-align:right}
     th{color:#c3d4e9;font-weight:600}
