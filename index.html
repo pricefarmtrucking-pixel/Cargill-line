@@ -19,7 +19,7 @@
       min-height:100vh;
     }
     .left{ grid-area:left; background:var(--panel); padding:16px; overflow:auto; border-right:1px solid #1b2532 }
-    .right{ grid-area:right; position:relative; display:block }
+    .right{ grid-area:right; position:relative; display:block; padding:0 16px }
 
     h1{margin:0 0 10px;font-size:18px;letter-spacing:.2px}
     .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -42,7 +42,7 @@
     .iconbtn{background:transparent;border:1px solid #34465f;border-radius:8px;color:#a3b6ce;padding:6px 8px;cursor:pointer}
     .iconbtn:hover{background:#182334}
 
-    #map{ position:relative; width:100%; height:32vh; border-bottom:1px solid #223045 }
+    #map{ position:relative; width:100%; height:32vh; border:1px solid #223045; border-radius:12px; background:#0b1320 }
 
     table{width:100%;border-collapse:collapse;margin-top:10px}
     th,td{padding:8px;border-bottom:1px solid #223045;text-align:right}
@@ -56,17 +56,16 @@
     .legend{display:flex;gap:8px;align-items:center}
     .swatch{width:18px;height:3px;border-radius:2px}
 
-    /* Horizontal scroll helper for table */
     .table-wrap{ overflow:auto; -webkit-overflow-scrolling:touch }
 
     /* ======== Mobile Tabs ======== */
     .tabs{ display:none } /* hidden on desktop */
     .tabpanel{ padding:12px 16px }
 
-    /* sticky results actions */
+    /* sticky actions in mobile results */
     #resultsPanel .sticky-actions{
       position: sticky; top:0; z-index:5;
-      background: var(--bg);
+      background: var(--panel);
       padding-top: 8px; margin-top: -8px;
       border-bottom: 1px solid #223045;
     }
@@ -98,8 +97,7 @@
         min-height:auto;
       }
       .left{ display:none }          /* hide sidebar on mobile */
-      .right{ display:block }
-      #map{ height:28vh }
+      .right{ display:block; padding:0 }
 
       .tabs{
         display:flex; gap:6px; padding:8px 12px;
@@ -118,6 +116,7 @@
       #resultsCards{ display:block }
       .btn{ padding:12px 14px }
       input[type="text"], input[type="number"], select{ padding:12px 14px; font-size:16px }
+      #map{ height:38vh }
     }
   </style>
 </head>
@@ -156,13 +155,12 @@
           <button type="button" class="btn ghost" id="optimize">Optimize Order (min deadhead)</button>
           <button type="button" class="btn ghost" id="sample">Load sample</button>
           <button type="button" class="btn" id="clearAll">Clear</button>
-          <!-- Optional: save/load to localStorage "library" or disk can be added later -->
         </div>
       </div>
 
       <div id="lanes"></div>
 
-      <div class="section">
+      <div class="section" id="resultsBlock">
         <div class="row" style="justify-content:space-between;align-items:center">
           <div><span class="tag">Results</span></div>
           <div class="row">
@@ -204,15 +202,18 @@
             </tfoot>
           </table>
         </div>
-        <!-- Mobile cards container -->
+        <!-- Mobile cards container (desktop hidden via media queries) -->
         <div id="resultsCards" hidden></div>
-
         <div class="note">Overall RPM = Total Gross ÷ (Loaded + Deadhead). RPM note is shown below; proposal page also includes both all-miles and loaded-only RPM.</div>
       </div>
     </aside>
 
-    <!-- ======== Right: Tabs + Panels ======== -->
+    <!-- ======== Right: desktop hosts + mobile tabs ======== -->
     <main class="right">
+      <!-- RIGHT-SIDE hosts for desktop/tablet (≥900px) -->
+      <div id="resultsHostRight"></div>
+      <div id="mapHostRight"><div id="map"></div></div>
+
       <!-- MOBILE TAB BAR -->
       <nav id="mTabs" class="tabs" aria-label="Sections" role="tablist">
         <button role="tab" class="tabBtn" data-tab="lanes"   aria-selected="true">Lanes</button>
@@ -220,37 +221,24 @@
         <button role="tab" class="tabBtn" data-tab="map">Map</button>
       </nav>
 
-      <!-- PANELS (shown only on mobile; desktop uses sidebar + inline results) -->
+      <!-- PANELS (mobile only; we move blocks into these hosts on small screens) -->
       <section id="panel-lanes" class="tabpanel" role="tabpanel" aria-labelledby="tab-lanes" hidden>
+        <!-- MOBILE CONTROLS -->
+        <div class="row" style="gap:8px; margin:4px 0 10px">
+          <button type="button" class="btn primary" id="calc_m">Calculate & Map</button>
+          <button type="button" class="btn" id="clearAll_m">Clear all</button>
+        </div>
         <div id="lanesWrap"></div>
       </section>
 
       <section id="panel-results" class="tabpanel" role="tabpanel" aria-labelledby="tab-results" hidden>
-        <section class="section" id="resultsPanel" style="padding:12px 16px">
-          <div class="sticky-actions">
-            <div class="row" style="justify-content:space-between;align-items:center">
-              <div><span class="tag">Results</span></div>
-              <div class="row">
-                <button type="button" class="btn" id="exportCsv_m">Export CSV</button>
-                <button type="button" class="btn" id="emailBtn_m">Open Proposal</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="table-wrap">
-            <table id="resultsTable_m" hidden>
-              <!-- we won’t use this on mobile; left for parity -->
-            </table>
-          </div>
-
-          <div id="resultsCards" hidden></div>
-
-          <div class="note" id="noteMobile"></div>
+        <section class="section" id="resultsPanel" style="padding:12px 0">
+          <div id="resultsHostMobile"></div>
         </section>
       </section>
 
       <section id="panel-map" class="tabpanel" role="tabpanel" aria-labelledby="tab-map" hidden>
-        <div id="map"></div>
+        <div id="mapHostMobile"></div>
       </section>
     </main>
   </div>
@@ -310,35 +298,7 @@
     const fmtMi    = n => (Math.round(n * 10) / 10).toLocaleString(undefined,{minimumFractionDigits:1, maximumFractionDigits:1});
     const fmtMoney = n => n.toLocaleString(undefined,{style:'currency',currency:'USD'});
 
-    /* -------- Diagnostics (toggle button top-right) -------- */
-    (function(){
-      const box = document.createElement('div');
-      box.id = 'fp_log';
-      Object.assign(box.style,{
-        position:'fixed',left:'8px',right:'8px',bottom:'8px',maxHeight:'40vh',
-        overflow:'auto',font:'12px/1.35 system-ui,Segoe UI,Roboto,Arial',color:'#e8f0fb',
-        background:'#111924',border:'1px solid #2a3a4f',borderRadius:'8px',
-        padding:'8px',zIndex:2147483647,display:'none'
-      });
-      const btn = document.createElement('button');
-      btn.textContent = 'Diagnostics';
-      Object.assign(btn.style,{
-        position:'fixed',right:'8px',top:'8px',zIndex:2147483647,
-        background:'#1a73e8',color:'#fff',border:'1px solid #0d4fb6',
-        borderRadius:'8px',padding:'6px 10px',font:'13px system-ui'
-      });
-      btn.onclick = ()=>{ box.style.display = (box.style.display==='none'?'block':'none'); };
-      document.addEventListener('DOMContentLoaded',()=>{ document.body.appendChild(btn); document.body.appendChild(box); });
-      function logLine(kind, msg){
-        const p=document.createElement('div'); p.textContent = `[${kind}] ${msg}`;
-        box.appendChild(p); box.style.display='block';
-      }
-      window.fpLog = (msg)=>logLine('log', msg);
-      window.addEventListener('error', e => logLine('error', (e.error && e.error.stack) || e.message || String(e)));
-      window.addEventListener('unhandledrejection', e => logLine('promise', (e.reason && (e.reason.stack||e.reason.message)) || String(e.reason)));
-    })();
-
-    /* -------- Tiny toast -------- */
+    /* -------- Toast -------- */
     function toast(msg, ms=3000){
       let el = document.getElementById('fp_toast');
       if(!el){
@@ -362,6 +322,7 @@
     document.addEventListener('DOMContentLoaded', setupUI);
 
     function setupUI(){
+      // Desktop buttons
       $('#addLane').addEventListener('click', ()=>addLane());
       $('#calc').addEventListener('click', calculateAndMap);
       $('#optimize').addEventListener('click', optimizeOrder);
@@ -371,9 +332,9 @@
       $('#emailBtn').addEventListener('click', openProposal);
       $('#rpmMode').addEventListener('change', ()=>{ persist(); });
 
-      // mirror mobile buttons to desktop handlers
-      $('#exportCsv_m')?.addEventListener('click', exportCSV);
-      $('#emailBtn_m')?.addEventListener('click', openProposal);
+      // Mobile buttons
+      $('#calc_m')?.addEventListener('click', calculateAndMap);
+      $('#clearAll_m')?.addEventListener('click', clearAll);
 
       const wrap = $('#lanes');
       wrap.addEventListener('dragover', e=>{
@@ -387,11 +348,17 @@
 
       setupTabs();
       moveLanesForViewport();
+      moveResultsForViewport();
+      moveMapForViewport();
 
       if(!loadFromURL()) loadFromStorage();
       if(!$('#lanes').children.length) addLane();
 
-      window.addEventListener('resize', moveLanesForViewport);
+      window.addEventListener('resize', ()=>{
+        moveLanesForViewport();
+        moveResultsForViewport();
+        moveMapForViewport();
+      });
     }
 
     function safeAutocomplete(input){
@@ -474,6 +441,42 @@
         if(panels[h]) initial = h;
       }
       activate(initial);
+    }
+
+    /* -------- Move Results + Map between hosts (mobile vs desktop) -------- */
+    function moveResultsForViewport(){
+      const block = document.getElementById('resultsBlock');
+      const hostRight  = document.getElementById('resultsHostRight');
+      const hostMobile = document.getElementById('resultsHostMobile');
+      const left = document.querySelector('.left');
+
+      if(!block || !hostRight || !hostMobile) return;
+
+      if(window.innerWidth <= 900){
+        // mobile: block inside Results panel
+        if(!hostMobile.contains(block)) hostMobile.appendChild(block);
+        // hide block on left
+        if(left && left.contains(block)) left.removeChild(block);
+      } else {
+        // desktop: block on the right
+        if(!hostRight.contains(block)) hostRight.appendChild(block);
+      }
+    }
+
+    function moveMapForViewport(){
+      const mapEl = document.getElementById('map');
+      const hostRight  = document.getElementById('mapHostRight');
+      const hostMobile = document.getElementById('mapHostMobile');
+      if(!mapEl || !hostRight || !hostMobile) return;
+
+      if(window.innerWidth <= 900){
+        if(!hostMobile.contains(mapEl)) hostMobile.appendChild(mapEl);
+      } else {
+        if(!hostRight.contains(mapEl)) hostRight.appendChild(mapEl);
+      }
+      if(window.google && map){
+        setTimeout(()=> google.maps.event.trigger(map, 'resize'), 60);
+      }
     }
 
     /* -------- Lane CRUD -------- */
@@ -947,9 +950,6 @@
           </div>
         `;
         cardsWrap.appendChild(totalsCard);
-
-        const noteMobile = document.getElementById('noteMobile');
-        if(noteMobile) noteMobile.textContent = document.querySelector('.note').textContent;
       }
       /* ===== end Mobile Cards ===== */
     }
@@ -1030,7 +1030,6 @@
       if(returnToBase && base)   flags.push('Final DH back to Base included');
       flags.push(rpmMode==='all' ? 'RPM uses ALL miles' : 'RPM uses LOADED miles only');
 
-      /* precompute plain text BEFORE templating (fix) */
       const plainText = buildProposalPlainText(perLane, {base, flags, loaded, deadhead, gross, url});
 
       const esc = s => (s??'').toString().replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
@@ -1245,10 +1244,11 @@
       clearMap();
       $('#resultsTable').hidden = true;
       lastCompute = null;
+      const cardsWrap = $('#resultsCards'); if(cardsWrap){ cardsWrap.innerHTML=''; cardsWrap.hidden=true; }
     }
   </script>
 
-  <!-- Google Maps API (key as provided) -->
+  <!-- Google Maps API -->
   <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAX9GFUEGbzuUx3KefbZw9_a0_eDOiNFf0&libraries=places&callback=initMap"></script>
 </body>
 </html>
