@@ -10,9 +10,17 @@
     }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    .app{display:grid;grid-template-columns:390px 1fr;min-height:100vh}
-    .left{background:var(--panel);padding:16px;overflow:auto;border-right:1px solid #1b2532}
-    .right{position:relative; overflow:auto} /* allow results under map to scroll */
+
+    /* ======== Desktop grid ======== */
+    .app{
+      display:grid;
+      grid-template-columns:390px 1fr;
+      grid-template-areas:"left right";
+      min-height:100vh;
+    }
+    .left{ grid-area:left; background:var(--panel); padding:16px; overflow:auto; border-right:1px solid #1b2532 }
+    .right{ grid-area:right; position:relative; display:block }
+
     h1{margin:0 0 10px;font-size:18px;letter-spacing:.2px}
     .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .controls{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
@@ -25,6 +33,7 @@
     .btn.success{background:var(--accent);border-color:#2da373}
     .btn.ghost{background:#101827;border-color:#243244}
     .section{padding:10px 0;border-top:1px solid #1b2532;margin-top:10px}
+
     .lane{background:#0e1520;border:1px solid #233247;border-radius:12px;padding:10px;margin:8px 0}
     .lane.dragging{opacity:.6;outline:2px dashed #2a3a4f}
     .lane > .row{margin:8px 0}
@@ -32,12 +41,9 @@
     .lane small{color:var(--muted)}
     .iconbtn{background:transparent;border:1px solid #34465f;border-radius:8px;color:#a3b6ce;padding:6px 8px;cursor:pointer}
     .iconbtn:hover{background:#182334}
-    #map{
-      position:relative;
-      width:100%;
-      height:32vh;     /* smaller than half screen */
-      border-bottom:1px solid #223045;
-    }
+
+    #map{ position:relative; width:100%; height:32vh; border-bottom:1px solid #223045 }
+
     table{width:100%;border-collapse:collapse;margin-top:10px}
     th,td{padding:8px;border-bottom:1px solid #223045;text-align:right}
     th{color:#c3d4e9;font-weight:600}
@@ -49,10 +55,75 @@
     .tag{font-size:11px;background:#0b1320;border:1px solid #22334a;border-radius:999px;padding:2px 6px;color:#cfe2f7}
     .legend{display:flex;gap:8px;align-items:center}
     .swatch{width:18px;height:3px;border-radius:2px}
+
+    /* Horizontal scroll helper for table */
+    .table-wrap{ overflow:auto; -webkit-overflow-scrolling:touch }
+
+    /* ======== Mobile Tabs ======== */
+    .tabs{ display:none } /* hidden on desktop */
+    .tabpanel{ padding:12px 16px }
+
+    /* sticky results actions */
+    #resultsPanel .sticky-actions{
+      position: sticky; top:0; z-index:5;
+      background: var(--bg);
+      padding-top: 8px; margin-top: -8px;
+      border-bottom: 1px solid #223045;
+    }
+
+    /* Mobile result cards (hidden on desktop) */
+    #resultsCards{ display:none }
+    .result-card{
+      border:1px solid #223045; border-radius:12px;
+      padding:10px; margin:8px 0; background:#0e1520;
+    }
+    .result-card .hdr{
+      display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:6px;
+    }
+    .result-card .route{ font-weight:600 }
+    .result-card .kpis{
+      display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:6px; margin-top:6px;
+    }
+    .kpi{
+      background:#101827; border:1px solid #243244; border-radius:10px;
+      padding:8px; font-size:13px;
+    }
+    .kpi .lab{ color:var(--muted); font-size:11px; display:block; margin-bottom:2px }
+
+    /* ======== Mobile breakpoints ======== */
+    @media (max-width: 900px){
+      .app{
+        grid-template-columns:1fr;
+        grid-template-areas:"right";
+        min-height:auto;
+      }
+      .left{ display:none }          /* hide sidebar on mobile */
+      .right{ display:block }
+      #map{ height:28vh }
+
+      .tabs{
+        display:flex; gap:6px; padding:8px 12px;
+        position:sticky; top:0; z-index:7;
+        background:var(--panel); border-bottom:1px solid #1b2532;
+      }
+      .tabBtn{
+        flex:1; padding:10px 12px; border-radius:10px; cursor:pointer;
+        border:1px solid #2a3a4f; background:#101827; color:#e8f0fb;
+        font-weight:600;
+      }
+      .tabBtn[aria-selected="true"]{ background:var(--accent2); border-color:#1e5fbc }
+
+      /* show cards instead of table on mobile */
+      #resultsTable{ display:none !important }
+      #resultsCards{ display:block }
+      .btn{ padding:12px 14px }
+      input[type="text"], input[type="number"], select{ padding:12px 14px; font-size:16px }
+    }
   </style>
 </head>
 <body>
   <div class="app">
+    <!-- ======== Left (desktop): controls + lanes ======== -->
     <aside class="left">
       <h1>FarmPro • Multi-Lane Map & RPM Calculator</h1>
       <div class="row legend">
@@ -85,18 +156,13 @@
           <button type="button" class="btn ghost" id="optimize">Optimize Order (min deadhead)</button>
           <button type="button" class="btn ghost" id="sample">Load sample</button>
           <button type="button" class="btn" id="clearAll">Clear</button>
+          <!-- Optional: save/load to localStorage "library" or disk can be added later -->
         </div>
       </div>
 
       <div id="lanes"></div>
-      <!-- (Removed the old Results section from the left) -->
-    </aside>
 
-    <main class="right">
-      <div id="map"></div>
-
-      <!-- RESULTS under the map -->
-      <section class="section" id="resultsPanel" style="padding:12px 16px">
+      <div class="section">
         <div class="row" style="justify-content:space-between;align-items:center">
           <div><span class="tag">Results</span></div>
           <div class="row">
@@ -104,45 +170,92 @@
             <button type="button" class="btn" id="emailBtn">Open Proposal</button>
           </div>
         </div>
+        <div class="table-wrap">
+          <table id="resultsTable" hidden>
+            <thead>
+              <tr>
+                <th>Lane</th>
+                <th>Origin → Destination</th>
+                <th>Loaded mi</th>
+                <th>Deadhead mi</th>
+                <th>Input $/ton</th>
+                <th>Input RPM</th>
+                <th>Tons</th>
+                <th>Bushels</th>
+                <th>Gross $</th>
+                <th>Lane RPM</th>
+                <th>$ / ton</th>
+                <th>$ / bu</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2">Totals</td>
+                <td id="tLoaded"></td>
+                <td id="tDeadhead"></td>
+                <td></td><td></td>
+                <td id="tTons"></td>
+                <td id="tBushels"></td>
+                <td id="tGross"></td>
+                <td id="tRPM"></td>
+                <td></td><td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <!-- Mobile cards container -->
+        <div id="resultsCards" hidden></div>
 
-        <table id="resultsTable" hidden>
-          <thead>
-            <tr>
-              <th>Lane</th>
-              <th>Origin → Destination</th>
-              <th>Loaded mi</th>
-              <th>Deadhead mi</th>
-              <th>Input $/ton</th>
-              <th>Input RPM</th>
-              <th>Tons</th>
-              <th>Bushels</th>
-              <th>Gross $</th>
-              <th>Lane RPM</th>
-              <th>$ / ton</th>
-              <th>$ / bu</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-          <tfoot>
-            <tr>
-              <td colspan="2">Totals</td>
-              <td id="tLoaded"></td>
-              <td id="tDeadhead"></td>
-              <td></td><td></td>
-              <td id="tTons"></td>
-              <td id="tBushels"></td>
-              <td id="tGross"></td>
-              <td id="tRPM"></td>
-              <td></td><td></td>
-            </tr>
-          </tfoot>
-        </table>
+        <div class="note">Overall RPM = Total Gross ÷ (Loaded + Deadhead). RPM note is shown below; proposal page also includes both all-miles and loaded-only RPM.</div>
+      </div>
+    </aside>
 
-        <div class="note">Overall RPM = Total Gross ÷ (Loaded + Deadhead). Also shown on the proposal page with a loaded-only RPM.</div>
+    <!-- ======== Right: Tabs + Panels ======== -->
+    <main class="right">
+      <!-- MOBILE TAB BAR -->
+      <nav id="mTabs" class="tabs" aria-label="Sections" role="tablist">
+        <button role="tab" class="tabBtn" data-tab="lanes"   aria-selected="true">Lanes</button>
+        <button role="tab" class="tabBtn" data-tab="results">Results</button>
+        <button role="tab" class="tabBtn" data-tab="map">Map</button>
+      </nav>
+
+      <!-- PANELS (shown only on mobile; desktop uses sidebar + inline results) -->
+      <section id="panel-lanes" class="tabpanel" role="tabpanel" aria-labelledby="tab-lanes" hidden>
+        <div id="lanesWrap"></div>
+      </section>
+
+      <section id="panel-results" class="tabpanel" role="tabpanel" aria-labelledby="tab-results" hidden>
+        <section class="section" id="resultsPanel" style="padding:12px 16px">
+          <div class="sticky-actions">
+            <div class="row" style="justify-content:space-between;align-items:center">
+              <div><span class="tag">Results</span></div>
+              <div class="row">
+                <button type="button" class="btn" id="exportCsv_m">Export CSV</button>
+                <button type="button" class="btn" id="emailBtn_m">Open Proposal</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table id="resultsTable_m" hidden>
+              <!-- we won’t use this on mobile; left for parity -->
+            </table>
+          </div>
+
+          <div id="resultsCards" hidden></div>
+
+          <div class="note" id="noteMobile"></div>
+        </section>
+      </section>
+
+      <section id="panel-map" class="tabpanel" role="tabpanel" aria-labelledby="tab-map" hidden>
+        <div id="map"></div>
       </section>
     </main>
   </div>
 
+  <!-- Lane template -->
   <template id="laneTmpl">
     <div class="lane" draggable="true">
       <div class="row" style="justify-content:space-between;align-items:center">
@@ -197,7 +310,7 @@
     const fmtMi    = n => (Math.round(n * 10) / 10).toLocaleString(undefined,{minimumFractionDigits:1, maximumFractionDigits:1});
     const fmtMoney = n => n.toLocaleString(undefined,{style:'currency',currency:'USD'});
 
-    // ---- Diagnostics (handy on iPad) ----
+    /* -------- Diagnostics (toggle button top-right) -------- */
     (function(){
       const box = document.createElement('div');
       box.id = 'fp_log';
@@ -225,6 +338,7 @@
       window.addEventListener('unhandledrejection', e => logLine('promise', (e.reason && (e.reason.stack||e.reason.message)) || String(e.reason)));
     })();
 
+    /* -------- Tiny toast -------- */
     function toast(msg, ms=3000){
       let el = document.getElementById('fp_toast');
       if(!el){
@@ -257,6 +371,10 @@
       $('#emailBtn').addEventListener('click', openProposal);
       $('#rpmMode').addEventListener('change', ()=>{ persist(); });
 
+      // mirror mobile buttons to desktop handlers
+      $('#exportCsv_m')?.addEventListener('click', exportCSV);
+      $('#emailBtn_m')?.addEventListener('click', openProposal);
+
       const wrap = $('#lanes');
       wrap.addEventListener('dragover', e=>{
         e.preventDefault();
@@ -267,8 +385,13 @@
         wrap.insertBefore(dragging, next || null);
       });
 
+      setupTabs();
+      moveLanesForViewport();
+
       if(!loadFromURL()) loadFromStorage();
       if(!$('#lanes').children.length) addLane();
+
+      window.addEventListener('resize', moveLanesForViewport);
     }
 
     function safeAutocomplete(input){
@@ -293,6 +416,67 @@
       }
     }
 
+    /* -------- Tabs (mobile) + move lanes into panel -------- */
+    function moveLanesForViewport(){
+      const lanesEl = document.getElementById('lanes');
+      const wrap = document.getElementById('lanesWrap');
+      const left = document.querySelector('.left');
+      if(window.innerWidth <= 900){
+        if(lanesEl && wrap && !wrap.contains(lanesEl)) wrap.appendChild(lanesEl);
+      } else {
+        if(lanesEl && left && !left.contains(lanesEl)) left.appendChild(lanesEl);
+      }
+    }
+    function setupTabs(){
+      const tabbar = document.getElementById('mTabs');
+      if(!tabbar) return;
+      const panels = {
+        lanes:   document.getElementById('panel-lanes'),
+        results: document.getElementById('panel-results'),
+        map:     document.getElementById('panel-map'),
+      };
+      const buttons = Array.from(tabbar.querySelectorAll('.tabBtn'));
+
+      function activate(name){
+        try{ localStorage.setItem('farmpro_tab', name); }catch(_){}
+        buttons.forEach(b=> b.setAttribute('aria-selected', b.dataset.tab===name ? 'true' : 'false'));
+        Object.entries(panels).forEach(([key, el])=>{
+          if(!el) return;
+          if(key===name) el.removeAttribute('hidden'); else el.setAttribute('hidden','');
+        });
+        if(name==='map' && window.google && map){
+          setTimeout(()=> google.maps.event.trigger(map, 'resize'), 50);
+        }
+      }
+
+      tabbar.addEventListener('click', e=>{
+        const btn = e.target.closest('.tabBtn'); if(!btn) return;
+        activate(btn.dataset.tab);
+      });
+      tabbar.addEventListener('keydown', e=>{
+        const idx = buttons.findIndex(b=>b.getAttribute('aria-selected')==='true');
+        if(idx<0) return;
+        if(e.key==='ArrowRight' || e.key==='ArrowLeft'){
+          e.preventDefault();
+          const dir = e.key==='ArrowRight' ? 1 : -1;
+          const next = (idx + dir + buttons.length) % buttons.length;
+          buttons[next].focus(); buttons[next].click();
+        }
+      });
+
+      let initial = 'lanes';
+      try{
+        const saved = localStorage.getItem('farmpro_tab');
+        if(saved && panels[saved]) initial = saved;
+      }catch(_){}
+      if(location.hash){
+        const h = location.hash.replace('#','').toLowerCase();
+        if(panels[h]) initial = h;
+      }
+      activate(initial);
+    }
+
+    /* -------- Lane CRUD -------- */
     function addLane(data={}){
       const wrap = $('#lanes');
       const tmpl = $('#laneTmpl');
@@ -321,6 +505,9 @@
         inp.addEventListener('change', persist);
         inp.addEventListener('blur', persist);
       });
+      node.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain','drag'); node.classList.add('dragging'); });
+      node.addEventListener('dragend',   ()=>{ node.classList.remove('dragging'); persist(); refreshLaneIndices(); });
+
       persist();
     }
 
@@ -344,6 +531,7 @@
       });
     }
 
+    /* -------- Map helpers -------- */
     function clearMap(){
       polylines.forEach(p=>p.setMap && p.setMap(null));
       polylines.length = 0;
@@ -378,8 +566,8 @@
       map.fitBounds(bounds, {top:24,right:24,bottom:24,left:24});
     }
 
-    // ---------- Optimizer (unchanged) ----------
-    const _deadheadCache = new Map();  // key: "A|B" -> miles
+    /* -------- Optimizer -------- */
+    const _deadheadCache = new Map();
     async function deadheadMiles(a, b){
       const key = a+'|'+b;
       if(_deadheadCache.has(key)) return _deadheadCache.get(key);
@@ -528,8 +716,8 @@
         alert('Could not optimize (API limits or address errors). Try again.');
       }
     }
-    // ---------- end optimizer ----------
 
+    /* -------- Core compute + render -------- */
     async function calculateAndMap(){
       const lanes = readLanes();
       if(lanes.length===0){ alert('Add at least one lane'); return; }
@@ -546,7 +734,6 @@
       const perLane = [];
       let prevDest = null;
 
-      // optional deadhead: Base -> first origin
       if(includeStartDH){
         try{
           const {miles, path} = await routeMiles(base, lanes[0].origin);
@@ -559,7 +746,6 @@
         }
       }
 
-      // Iterate lanes (draw loaded, draw DH between lanes for visuals; allocate DH later to lanes)
       for(let i=0;i<lanes.length;i++){
         const L = lanes[i];
 
@@ -587,7 +773,7 @@
             tons:isFinite(L.tons)?Number(L.tons):NaN,
             rpm:isFinite(L.rpm)?Number(L.rpm):NaN,
             bushels:isFinite(L.bushels)?Number(L.bushels):NaN,
-            gross:0 // fill after DH allocation + rule
+            gross:0
           });
         }catch(e){
           console.warn(`Loaded ${L.origin} → ${L.destination} failed:`, e);
@@ -605,7 +791,7 @@
         }
       }
 
-      // Allocate numeric deadhead to lanes (so RPM 'all miles' can include it)
+      // allocate DH to lanes for 'all miles' RPM
       perLane.forEach(pl=>pl.deadhead=0);
       const dhPairs=[];
       if(includeStartDH && perLane[0]) dhPairs.push([base, perLane[0].origin, 0]);
@@ -617,7 +803,6 @@
       const dhRes = await Promise.all(dhPromises);
       dhRes.forEach(({idx,miles})=>{ if(idx>=0 && perLane[idx]) perLane[idx].deadhead += miles; });
 
-      // final deadhead back to base
       let finalDhMiles = 0;
       if(returnToBase && perLane.length){
         try{
@@ -630,18 +815,15 @@
         }
       }
 
-      // Now compute gross per lane based on priority (RPM first, then $/ton×tons)
+      // compute gross per lane
       perLane.forEach(L=>{
         const hasRPM = isFinite(L.rpm) && L.rpm>0;
         const hasRateTons = isFinite(L.rate) && L.rate>0 && isFinite(L.tons) && L.tons>0;
-
         const milesForRPM = (rpmMode === 'all') ? (L.loaded + L.deadhead) : L.loaded;
         const grossFromRPM = hasRPM ? L.rpm * milesForRPM : 0;
         const grossFromTons = hasRateTons ? L.rate * L.tons : 0;
-
         L.gross = hasRPM ? grossFromRPM : grossFromTons;
 
-        // Totals
         if(isFinite(L.tons)) totals.tons += (L.tons||0);
         if(isFinite(L.bushels)) totals.bushels += (L.bushels||0);
         totals.gross += (L.gross||0);
@@ -711,13 +893,65 @@
       $('#tRPM').textContent = rpmAll.toFixed(2);
       table.hidden = false;
 
-      const note = document.querySelector('.note');
-      const rpmNote = (rpmMode==='all') ? 'RPM uses ALL miles (loaded + allocated deadhead).' : 'RPM uses LOADED miles only.';
-      if(finalDhMiles>0){
-        note.textContent = `Overall RPM = Total Gross ÷ (Loaded + Deadhead). ${rpmNote} Includes ${fmtMi(finalDhMiles)} mi return-to-base deadhead.`;
-      } else {
-        note.textContent = `Overall RPM = Total Gross ÷ (Loaded + Deadhead). ${rpmNote}`;
+      const noteText = (rpmMode==='all')
+        ? 'Overall RPM = Total Gross ÷ (Loaded + Deadhead). RPM uses ALL miles (loaded + allocated deadhead).'
+        : 'Overall RPM = Total Gross ÷ (Loaded + Deadhead). RPM uses LOADED miles only.';
+      document.querySelector('.note').textContent = finalDhMiles>0
+        ? `${noteText} Includes ${fmtMi(finalDhMiles)} mi return-to-base deadhead.`
+        : noteText;
+
+      /* ===== Mobile Cards ===== */
+      const cardsWrap = $('#resultsCards');
+      if(cardsWrap){
+        cardsWrap.innerHTML = '';
+        cardsWrap.hidden = false;
+
+        perLane.forEach(L=>{
+          const laneMilesAll = (L.loaded + L.deadhead);
+          const laneRPM = L.gross / (laneMilesAll || 1);
+          const ratePerTon = (isFinite(L.tons) && L.tons>0) ? (L.gross / L.tons) : NaN;
+          const ratePerBu  = (isFinite(L.bushels) && L.bushels>0) ? (L.gross / L.bushels) : NaN;
+
+          const card = document.createElement('div');
+          card.className = 'result-card';
+          card.innerHTML = `
+            <div class="hdr">
+              <div class="route">Lane ${L.index} • ${escapeHtml(L.origin)} → ${escapeHtml(L.destination)}</div>
+              <div class="kpi"><span class="lab">Gross</span>${fmtMoney(L.gross||0)}</div>
+            </div>
+            <div class="kpis">
+              <div class="kpi"><span class="lab">Loaded mi</span>${fmtMi(L.loaded)}</div>
+              <div class="kpi"><span class="lab">Deadhead mi</span>${fmtMi(L.deadhead)}</div>
+              <div class="kpi"><span class="lab">Lane RPM</span>${laneRPM?laneRPM.toFixed(2):'-'}</div>
+              <div class="kpi"><span class="lab">$ / ton</span>${isFinite(ratePerTon)?ratePerTon.toFixed(2):'-'}</div>
+              <div class="kpi"><span class="lab">Tons</span>${(isFinite(L.tons)&&L.tons>0)?L.tons.toFixed(1):'-'}</div>
+              <div class="kpi"><span class="lab">$ / bu</span>${isFinite(ratePerBu)?ratePerBu.toFixed(2):'-'}</div>
+            </div>
+          `;
+          cardsWrap.appendChild(card);
+        });
+
+        const totalsCard = document.createElement('div');
+        totalsCard.className = 'result-card';
+        totalsCard.innerHTML = `
+          <div class="hdr">
+            <div class="route">Totals</div>
+            <div class="kpi"><span class="lab">Overall RPM</span>${rpmAll.toFixed(2)}</div>
+          </div>
+          <div class="kpis">
+            <div class="kpi"><span class="lab">Loaded mi</span>${fmtMi(loaded)}</div>
+            <div class="kpi"><span class="lab">Deadhead mi</span>${fmtMi(deadhead)}</div>
+            <div class="kpi"><span class="lab">Tons</span>${sumTons?sumTons.toFixed(1):'-'}</div>
+            <div class="kpi"><span class="lab">Bushels</span>${sumBushels?Math.round(sumBushels):'-'}</div>
+            <div class="kpi"><span class="lab">Gross</span>${fmtMoney(gross)}</div>
+          </div>
+        `;
+        cardsWrap.appendChild(totalsCard);
+
+        const noteMobile = document.getElementById('noteMobile');
+        if(noteMobile) noteMobile.textContent = document.querySelector('.note').textContent;
       }
+      /* ===== end Mobile Cards ===== */
     }
 
     function exportCSV(){
@@ -747,6 +981,40 @@
       URL.revokeObjectURL(url);
     }
 
+    /* -------- Proposal plain text (FIX) -------- */
+    function buildProposalPlainText(perLane, ctx){
+      const { base, flags=[], loaded, deadhead, gross, url } = ctx;
+      const lines = [];
+      const num = (n, d=1)=> (Math.round(n*10)/10).toLocaleString(undefined,{minimumFractionDigits:d, maximumFractionDigits:d});
+
+      lines.push('Proposed Lanes Summary');
+      if(base) lines.push('Base/Yard: ' + base);
+      if(flags.length) lines.push('Notes: ' + flags.join('; '));
+      lines.push('');
+
+      perLane.forEach(L=>{
+        const laneMilesAll = (L.loaded + L.deadhead);
+        const laneRPM = L.gross / (laneMilesAll || 1);
+        const rpt = (Number.isFinite(L.tons)&&L.tons>0) ? (L.gross/L.tons) : NaN;
+        const rpb = (Number.isFinite(L.bushels)&&L.bushels>0) ? (L.gross/L.bushels) : NaN;
+
+        lines.push(`Lane ${L.index}: ${L.origin} → ${L.destination}`);
+        lines.push(`  Loaded: ${num(L.loaded)} mi | Deadhead: ${num(L.deadhead)} mi`);
+        lines.push(`  Inputs: $${Number.isFinite(L.rate)&&L.rate>0?L.rate.toFixed(2):'-'}/ton | RPM $${Number.isFinite(L.rpm)&&L.rpm>0?L.rpm.toFixed(2):'-'} | Tons ${Number.isFinite(L.tons)&&L.tons>0?L.tons.toFixed(1):'-'} | Bushels ${Number.isFinite(L.bushels)&&L.bushels>0?Math.round(L.bushels):'-'}`);
+        lines.push(`  Gross: ${fmtMoney(L.gross||0)} | Lane RPM: $${laneRPM?laneRPM.toFixed(2):'-'} | $/ton: ${Number.isFinite(rpt)?rpt.toFixed(2):'-'} | $/bu: ${Number.isFinite(rpb)?rpb.toFixed(2):'-'}`);
+        lines.push('');
+      });
+
+      lines.push(`TOTAL Loaded: ${num(loaded)} mi`);
+      lines.push(`TOTAL Deadhead: ${num(deadhead)} mi`);
+      lines.push(`TOTAL Miles: ${num(loaded+deadhead)} mi`);
+      lines.push(`TOTAL Gross: ${fmtMoney(gross)}`);
+      lines.push(`Overall RPM (all miles): $${(gross/(loaded+deadhead||1)).toFixed(2)} | Loaded-only RPM: $${(gross/(loaded||1)).toFixed(2)}`);
+      lines.push('');
+      lines.push('Open in calculator: ' + url);
+      return lines.join('\n');
+    }
+
     function openProposal(){
       if(!lastCompute){ alert('Calculate first, then open the proposal.'); return; }
       const { perLane, finalDhMiles, base, includeStartDH, returnToBase, url, rpmMode } = lastCompute;
@@ -762,8 +1030,10 @@
       if(returnToBase && base)   flags.push('Final DH back to Base included');
       flags.push(rpmMode==='all' ? 'RPM uses ALL miles' : 'RPM uses LOADED miles only');
 
-      const esc = s => (s??'').toString().replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+      /* precompute plain text BEFORE templating (fix) */
+      const plainText = buildProposalPlainText(perLane, {base, flags, loaded, deadhead, gross, url});
 
+      const esc = s => (s??'').toString().replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
       const rowsHtml = perLane.map(L=>{
         const laneRPM = L.gross / (L.loaded+L.deadhead||1);
         const rpt = (isFinite(L.tons)&&L.tons>0) ? (L.gross/L.tons) : NaN;
@@ -837,40 +1107,13 @@
     </tfoot>
   </table>
   <div style="margin-top:10px">Overall RPM (all miles): <b>$${(gross/(loaded+deadhead||1)).toFixed(2)}</b> — Loaded-only RPM: <b>$${(gross/(loaded||1)).toFixed(2)}</b></div>
-  <pre id="plain">${esc(buildPlainText(perLane, {base, flags, loaded, deadhead, gross, url}))}</pre>
+  <pre id="plain">${esc(plainText)}</pre>
   <script>
-    function buildPlainText(perLane, ctx){
-      const {base, flags, loaded, deadhead, gross, url} = ctx;
-      const lines=[];
-      lines.push('Proposed Lanes Summary');
-      if(base) lines.push('Base/Yard: '+base);
-      if(flags?.length) lines.push('Notes: '+flags.join('; '));
-      lines.push('');
-      perLane.forEach(L=>{
-        const laneRPM = L.gross / (L.loaded+L.deadhead||1);
-        const rpt = (isFinite(L.tons)&&L.tons>0)?(L.gross/L.tons):NaN;
-        const rpb = (isFinite(L.bushels)&&L.bushels>0)?(L.gross/L.bushels):NaN;
-        lines.push(\`Lane \${L.index}: \${L.origin} → \${L.destination}\`);
-        lines.push(\`  Loaded: \${(\`${fmtMi(0)}\` && (Math.round(L.loaded*10)/10).toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1}))} mi | Deadhead: \${(Math.round(L.deadhead*10)/10).toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1})} mi\`);
-        lines.push(\`  Inputs: \$\${isFinite(L.rate)&&L.rate>0?L.rate.toFixed(2):'-'}/ton | RPM \$\${isFinite(L.rpm)&&L.rpm>0?L.rpm.toFixed(2):'-'} | Tons \${isFinite(L.tons)&&L.tons>0?L.tons.toFixed(1):'-'} | Bushels \${isFinite(L.bushels)&&L.bushels>0?Math.round(L.bushels):'-'}\`);
-        lines.push(\`  Gross: ${'${'}(L.gross||0).toLocaleString(undefined,{style:'currency',currency:'USD'})${'}'} | Lane RPM: \$\${laneRPM?laneRPM.toFixed(2):'-'} | \$/ton: \${isFinite(rpt)?rpt.toFixed(2):'-'} | \$/bu: \${isFinite(rpb)?rpb.toFixed(2):'-'}\`);
-        lines.push('');
-      });
-      lines.push(\`TOTAL Loaded: \${(Math.round(loaded*10)/10).toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1})} mi\`);
-      lines.push(\`TOTAL Deadhead: \${(Math.round(deadhead*10)/10).toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1})} mi\`);
-      lines.push(\`TOTAL Miles: \${(Math.round((loaded+deadhead)*10)/10).toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1})} mi\`);
-      lines.push(\`TOTAL Gross: ${'${'}gross.toLocaleString(undefined,{style:'currency',currency:'USD'})${'}'}\`);
-      lines.push(\`Overall RPM (all miles): \$\${(gross/(loaded+deadhead||1)).toFixed(2)} | Loaded-only RPM: \$\${(gross/(loaded||1)).toFixed(2)}\`);
-      lines.push('');
-      lines.push('Open in calculator: '+url);
-      return lines.join('\\n');
-    }
     (function(){
       const copyBtn = document.getElementById('copy');
       const printBtn = document.getElementById('print');
-      const textEl = document.getElementById('plain');
+      const text = document.getElementById('plain').textContent;
       copyBtn.addEventListener('click', ()=>{
-        const text = textEl.textContent;
         if(navigator.clipboard?.writeText){
           navigator.clipboard.writeText(text).then(()=>alert('Copied to clipboard.'))
             .catch(()=>{
@@ -920,8 +1163,9 @@
       });
     }
 
-    function escapeHtml(str){ return str.replace(/[&<>"]/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s])); }
+    function escapeHtml(str){ return (str??'').toString().replace(/[&<>"]/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s])); }
 
+    /* -------- Persistence / URL share -------- */
     function persist(){
       const data = {
         base: $('#base').value.trim(),
@@ -932,7 +1176,6 @@
       };
       localStorage.setItem('farmpro_lanes', JSON.stringify(data));
     }
-
     function loadFromStorage(){
       try{
         const raw = localStorage.getItem('farmpro_lanes');
@@ -948,7 +1191,6 @@
         return true;
       }catch(e){ addLane(); return true; }
     }
-
     function updateShareURL(){
       const payload = {
         base: $('#base').value.trim(),
@@ -961,7 +1203,6 @@
       const url = location.origin + location.pathname + '?' + qp.toString();
       history.replaceState(null,'',url);
     }
-
     function loadFromURL(){
       const s = new URLSearchParams(location.search).get('state');
       if(!s) return false;
@@ -978,6 +1219,7 @@
       }catch(e){ return false; }
     }
 
+    /* -------- Sample / Clear -------- */
     function loadSample(){
       $('#lanes').innerHTML='';
       addLane({origin:'Mankato, MN', destination:'Lake Mills, WI', rate:38, tons:26, rpm:3.10, bushels:900});
@@ -990,7 +1232,6 @@
       $('#rpmMode').value = 'all';
       persist();
     }
-
     function clearAll(){
       if(!confirm('Clear all lanes and settings?')) return;
       localStorage.removeItem('farmpro_lanes');
@@ -1006,7 +1247,8 @@
       lastCompute = null;
     }
   </script>
-  <!-- Your key kept as provided -->
+
+  <!-- Google Maps API (key as provided) -->
   <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAX9GFUEGbzuUx3KefbZw9_a0_eDOiNFf0&libraries=places&callback=initMap"></script>
 </body>
 </html>
