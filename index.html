@@ -133,6 +133,54 @@
       input[type="text"], input[type="number"], select{ padding:12px 14px; font-size:16px }
       #map{ height:38vh }
     }
+    /* ===== THEME INK OVERRIDES (replace any default black text) ===== */
+:root{
+  --ink: #e8f0fb;       /* primary text on dark */
+  --ink-sub: #cfe2f7;   /* headings / emphasis */
+  --ink-muted: #9fb0c2; /* secondary text */
+}
+
+/* Global text color reset on dark backgrounds */
+body, .left, .right,
+.modal .card,
+.table-wrap, #resultsTable,
+.result-card, .kpi,
+.lib-list, .lib-item, .lib-name, .lib-when {
+  color: var(--ink);
+}
+
+/* Emphasis bits that looked “black” before */
+h1, .lane h3, .result-card .route, .lib-name, th {
+  color: var(--ink-sub);
+}
+
+/* Muted text stays muted */
+.muted, label, .lib-when, .kpi .lab, .note {
+  color: var(--ink-muted);
+}
+
+/* Inputs & placeholders */
+input[type="text"], input[type="number"], select, textarea {
+  color: var(--ink);
+}
+input::placeholder,
+textarea::placeholder {
+  color: #7f92a8;
+  opacity: 1; /* ensure consistent appearance across browsers */
+}
+
+/* Buttons: make sure text is not black on dark variants */
+.btn { color: #ffffff; }
+.btn.secondary { color: #0b1320; } /* only for light buttons in proposal window */
+
+/* Table cells—ensure they don’t inherit black */
+#resultsTable td, #resultsTable th { color: inherit; }
+
+/* Library modal checkboxes labels */
+.lib-item label, .lib-item .btn { color: var(--ink); }
+
+/* Mobile cards totals/kpis */
+.result-card .kpi { color: var(--ink); }
   </style>
 </head>
 <body>
