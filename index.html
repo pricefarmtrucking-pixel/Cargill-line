@@ -3,238 +3,1440 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>FarmPro • Lane Builder</title>
+  <title>FarmPro • Multi-Lane Map & Rate Calculator</title>
   <style>
     :root{
-      --bg:#0b1016; --panel:#111924; --muted:#9fb0c2; --text:#e8f0fb;
-      --accent:#48c78e; --accent2:#1a73e8; --danger:#ff6b6b; --line:#203041;
-      --input:#0f1621; --input-border:#2a3a50; --shadow:0 6px 20px rgba(0,0,0,.35);
-      --radius:14px; --radius-sm:10px;
+      --bg:#0b1016; --panel:#111924; --muted:#9fb0c2; --text:#e8f0fb; --accent:#48c78e; --accent2:#1a73e8; --danger:#ff6b6b;
     }
     *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0; background:var(--bg); color:var(--text); font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+
+    /* ======== Desktop grid ======== */
+    .app{
+      display:grid;
+      grid-template-columns:390px 1fr;
+      grid-template-areas:"left right";
+      min-height:100vh;
     }
-    .wrap{max-width:1100px; margin:0 auto; padding:14px 14px 80px}
-    header{display:flex; align-items:center; gap:10px; padding:8px 0 14px}
-    header h1{font-size:22px; margin:0}
-    .tabs{display:flex; gap:10px; margin-left:auto}
-    .tab{background:#0e1621;border:1px solid var(--line); color:var(--muted); padding:10px 14px; border-radius:999px; cursor:pointer}
-    .tab.active{background:var(--accent2); color:white; border-color:transparent}
-    .toolbar{display:flex; gap:10px; flex-wrap:wrap; margin:8px 0 14px}
-    .btn{
-      appearance:none; border:1px solid var(--line); background:#0e1621; color:var(--text);
-      padding:10px 14px; border-radius:10px; cursor:pointer; box-shadow:var(--shadow); transition:.15s transform;
-    }
-    .btn:hover{transform:translateY(-1px)}
-    .btn.accent{background:var(--accent); color:#07130d; border-color:transparent; font-weight:600}
-    .btn.ghost{background:transparent}
-    .btn.danger{background:#251317; border-color:#4d1b25; color:#ffb7c2}
-    .badge{font-size:12px; color:var(--muted)}
-    .card{
-      background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-      box-shadow:var(--shadow); padding:14px; margin-bottom:12px;
-    }
-    .lane-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px}
-    .lane-title{font-weight:700}
-    .lane-actions{display:flex; gap:8px}
-    .chip{border:1px solid var(--line); padding:8px 10px; border-radius:999px; background:#0e1621; cursor:pointer}
-    .grid{display:grid; grid-template-columns:1fr; gap:10px}
-    .field{display:flex; flex-direction:column; gap:6px}
-    .label{font-size:12px; color:var(--muted)}
-    input{
-      width:100%; padding:12px 12px; border-radius:10px; border:1px solid var(--input-border);
-      background:var(--input); color:var(--text); outline:none;
-    }
-    input::placeholder{color:#6c7d91}
-    /* top add button only on desktop/tablet */
-    .show-desktop{display:none}
-    /* bottom add button visible on phones */
-    .show-mobile{display:block; width:100%; margin:6px 0 12px}
-    /* wider screens */
-    @media (min-width: 900px){
-      .wrap{padding-bottom:40px}
-      .grid{grid-template-columns:1fr 1fr}
-      .show-desktop{display:inline-flex}
-      .show-mobile{display:none}
-    }
-    /* three-column last row on wide */
-    @media (min-width: 1100px){
-      .grid{grid-template-columns:repeat(2, 1fr)}
-      .grid .span2{grid-column:span 2}
-    }
-    /* subtle sticky bar on mobile so the top actions are reachable */
-    .sticky-top{
-      position:sticky; top:0; z-index:10; background:linear-gradient(180deg, rgba(11,16,22,.95), rgba(11,16,22,.85) 60%, rgba(11,16,22,0)); padding-top:6px;
-      backdrop-filter:saturate(1.1) blur(6px);
-    }
+    .left{ grid-area:left; background:var(--panel); padding:16px; overflow:auto; border-right:1px solid #1b2532 }
+    .right{ grid-area:right; position:relative; display:block; padding:0 16px }
+
+    h1{margin:0 0 10px;font-size:18px;letter-spacing:.2px}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
+    label{font-size:12px;color:var(--muted)}
+    input[type="text"], input[type="number"], select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #203044;background:#0e1520;color:var(--text)}
+    input[type="checkbox"]{transform:scale(1.1)}
+    .btn{padding:10px 12px;border-radius:10px;border:1px solid #2a3a4f;background:#162233;color:#fff;cursor:pointer}
+    .btn:hover{filter:brightness(1.1)}
+    .btn.primary{background:var(--accent2);border-color:#1e5fbc}
+    .btn.success{background:var(--accent);border-color:#2da373}
+    .btn.ghost{background:#101827;border-color:#243244}
+    .btn.warn{background:#2c1a1a;border-color:#5c2b2b}
+    .section{padding:10px 0;border-top:1px solid #1b2532;margin-top:10px}
+
+    .lane{background:#0e1520;border:1px solid #233247;border-radius:12px;padding:10px;margin:8px 0}
+    .lane.dragging{opacity:.6;outline:2px dashed #2a3a4f}
+    .lane > .row{margin:8px 0}
+    .lane h3{margin:0;font-size:14px;color:#cfe2f7}
+    .lane small{color:var(--muted)}
+    .iconbtn{background:transparent;border:1px solid #34465f;border-radius:8px;color:#a3b6ce;padding:6px 8px;cursor:pointer}
+    .iconbtn:hover{background:#182334}
+
+    #map{ position:relative; width:100%; height:32vh; border:1px solid #223045; border-radius:12px; background:#0b1320 }
+
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:8px;border-bottom:1px solid #223045;text-align:right}
+    th{color:#c3d4e9;font-weight:600}
+    td:first-child, th:first-child{text-align:left}
+    tfoot td{font-weight:700}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid #2a3a4f;border-radius:999px}
     .muted{color:var(--muted)}
+    .note{font-size:12px;color:var(--muted);margin-top:8px}
+    .tag{font-size:11px;background:#0b1320;border:1px solid #22334a;border-radius:999px;padding:2px 6px;color:#cfe2f7}
+    .legend{display:flex;gap:8px;align-items:center}
+    .swatch{width:18px;height:3px;border-radius:2px}
+
+    .table-wrap{ overflow:auto; -webkit-overflow-scrolling:touch }
+
+    /* ======== Mobile Tabs ======== */
+    .tabs{ display:none } /* hidden on desktop */
+    .tabpanel{ padding:12px 16px }
+
+    /* sticky actions in mobile results */
+    #resultsPanel .sticky-actions{
+      position: sticky; top:0; z-index:5;
+      background: var(--panel);
+      padding-top: 8px; margin-top: -8px;
+      border-bottom: 1px solid #223045;
+    }
+
+    /* Mobile result cards (hidden on desktop) */
+    #resultsCards{ display:none }
+    .result-card{
+      border:1px solid #223045; border-radius:12px;
+      padding:10px; margin:8px 0; background:#0e1520;
+    }
+    .result-card .hdr{
+      display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:6px;
+    }
+    .result-card .route{ font-weight:600 }
+    .result-card .kpis{
+      display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:6px; margin-top:6px;
+    }
+    .kpi{
+      background:#101827; border:1px solid #243244; border-radius:10px;
+      padding:8px; font-size:13px;
+    }
+    .kpi .lab{ color:var(--muted); font-size:11px; display:block; margin-bottom:2px }
+
+    /* ======== Modal (Library) ======== */
+    .modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:9999; }
+    .modal[open]{ display:flex }
+    .modal .scrim{ position:absolute; inset:0; background:rgba(0,0,0,.55) }
+    .modal .card{
+      position:relative; max-width:900px; width:92vw; max-height:82vh; overflow:auto;
+      background:#0e1520; border:1px solid #233247; border-radius:12px; padding:14px;
+      box-shadow:0 20px 60px rgba(0,0,0,.45);
+    }
+    .modal h2{ margin:0 0 8px; font-size:18px }
+    .modal .grid{ display:grid; grid-template-columns: 1.2fr .8fr; gap:12px }
+    .lib-list{ border:1px solid #223045; border-radius:10px; overflow:auto; background:#0b1320 }
+    .lib-item{ padding:10px; border-bottom:1px solid #1c2a3a; display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center }
+    .lib-item:last-child{ border-bottom:none }
+    .lib-name{ font-weight:600 }
+    .lib-when{ color:var(--muted); font-size:12px }
+    .lib-actions .btn{ padding:6px 8px; font-size:13px }
+    .lib-topbar{ display:flex; gap:8px; align-items:center; padding:8px; border-bottom:1px solid #1c2a3a; background:#0b1320; position:sticky; top:0; z-index:1 }
+    .lib-empty{ padding:14px; color:var(--muted) }
+
+    /* ======== Mobile breakpoints ======== */
+    @media (max-width: 900px){
+      .app{ grid-template-columns:1fr; grid-template-areas:"right"; min-height:auto }
+      .left{ display:none }
+      .right{ display:block; padding:0 }
+
+      .tabs{
+        display:flex; gap:6px; padding:8px 12px;
+        position:sticky; top:0; z-index:7;
+        background:var(--panel); border-bottom:1px solid #1b2532;
+      }
+      .tabBtn{
+        flex:1; padding:10px 12px; border-radius:10px; cursor:pointer;
+        border:1px solid #2a3a4f; background:#101827; color:#e8f0fb; font-weight:600;
+      }
+      .tabBtn[aria-selected="true"]{ background:var(--accent2); border-color:#1e5fbc }
+
+      #resultsTable{ display:none !important }
+      #resultsCards{ display:block }
+      .btn{ padding:12px 14px }
+      input[type="text"], input[type="number"], select{ padding:12px 14px; font-size:16px }
+      #map{ height:38vh }
+    }
+    /* ===== THEME INK OVERRIDES (replace any default black text) ===== */
+:root{
+  --ink: #e8f0fb;       /* primary text on dark */
+  --ink-sub: #cfe2f7;   /* headings / emphasis */
+  --ink-muted: #9fb0c2; /* secondary text */
+}
+
+/* Global text color reset on dark backgrounds */
+body, .left, .right,
+.modal .card,
+.table-wrap, #resultsTable,
+.result-card, .kpi,
+.lib-list, .lib-item, .lib-name, .lib-when {
+  color: var(--ink);
+}
+
+/* Emphasis bits that looked “black” before */
+h1, .lane h3, .result-card .route, .lib-name, th {
+  color: var(--ink-sub);
+}
+
+/* Muted text stays muted */
+.muted, label, .lib-when, .kpi .lab, .note {
+  color: var(--ink-muted);
+}
+
+/* Inputs & placeholders */
+input[type="text"], input[type="number"], select, textarea {
+  color: var(--ink);
+}
+input::placeholder,
+textarea::placeholder {
+  color: #7f92a8;
+  opacity: 1; /* ensure consistent appearance across browsers */
+}
+
+/* Buttons: make sure text is not black on dark variants */
+.btn { color: #ffffff; }
+.btn.secondary { color: #0b1320; } /* only for light buttons in proposal window */
+
+/* Table cells—ensure they don’t inherit black */
+#resultsTable td, #resultsTable th { color: inherit; }
+
+/* Library modal checkboxes labels */
+.lib-item label, .lib-item .btn { color: var(--ink); }
+
+/* Mobile cards totals/kpis */
+.result-card .kpi { color: var(--ink); }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="sticky-top">
-      <header>
-        <h1>Lane Builder <span class="badge" id="laneCountBadge">(1)</span></h1>
-        <div class="tabs" role="tablist" aria-label="Sections">
-          <button class="tab active" id="tab-lanes" aria-selected="true">Lanes</button>
-          <button class="tab" id="tab-results" aria-selected="false">Results</button>
-          <button class="tab" id="tab-map" aria-selected="false">Map</button>
-        </div>
-      </header>
-
-      <div class="toolbar">
-        <button class="btn accent show-desktop" id="addLaneBtnTop">+ Add lane</button>
-        <button class="btn" id="calcBtn">Calculate &amp; Map</button>
-        <button class="btn ghost" id="clearBtn">Clear all</button>
-        <button class="btn ghost" id="libraryBtn">Library</button>
+  <div class="app">
+    <!-- ======== Left (desktop): controls + lanes ======== -->
+    <aside class="left">
+      <h1>FarmPro • Multi-Lane Map & RPM Calculator</h1>
+      <div class="row legend">
+        <span class="tag">Legend</span>
+        <span class="swatch" style="background:#1a73e8"></span><span class="muted">Loaded</span>
+        <span class="swatch" style="background:linear-gradient(90deg,#808080 33%,transparent 33%,transparent 66%,#808080 66%)"></span><span class="muted">Deadhead</span>
       </div>
-    </div>
 
-    <!-- Lanes -->
-    <div id="lanesContainer"></div>
+      <div class="section">
+        <div class="row" style="gap:8px">
+          <div style="flex:1 1 100%">
+            <label>Base / Yard (optional)</label>
+            <input id="base" type="text" placeholder="e.g., Fairbank, IA" />
+          </div>
+          <div style="flex:1 1 100%">
+            <label>RPM uses</label>
+            <select id="rpmMode">
+              <option value="loaded">Loaded miles only</option>
+              <option value="all">All miles (loaded + allocated deadhead)</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <label class="pill"><input id="includeStartDH" type="checkbox" checked> Include deadhead from Base → first Origin</label>
+          <label class="pill"><input id="returnToBase" type="checkbox"> Add final deadhead from last Destination → Base</label>
+        </div>
+        <div class="controls">
+          <button type="button" class="btn success" id="addLane">+ Add lane</button>
+          <button type="button" class="btn primary" id="calc">Calculate & Map</button>
+          <button type="button" class="btn ghost" id="optimize">Optimize Order</button>
+          <button type="button" class="btn ghost" id="sample">Load sample</button>
+          <button type="button" class="btn" id="clearAll">Clear</button>
+          <button type="button" class="btn" id="openLib">Library</button>
+        </div>
+      </div>
 
-    <!-- Mobile-only Add lane button (always visible on phones) -->
-    <button class="btn accent show-mobile" id="addLaneBtnBottom">+ Add lane</button>
+      <div id="lanes"></div>
 
-    <!-- Results + Map placeholders (your app can swap visibility) -->
-    <div id="results" class="card" hidden>
-      <strong>Results</strong>
-      <div class="muted">Calculated totals will appear here.</div>
-    </div>
-    <div id="map" class="card" hidden>
-      <strong>Map</strong>
-      <div class="muted">Map renders here.</div>
-    </div>
+      <div class="section" id="resultsBlock">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div><span class="tag">Results</span></div>
+          <div class="row">
+            <button type="button" class="btn" id="exportCsv">Export CSV</button>
+            <button type="button" class="btn" id="emailBtn">Open Proposal</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="resultsTable" hidden>
+            <thead>
+              <tr>
+                <th>Lane</th>
+                <th>Origin → Destination</th>
+                <th>Loaded mi</th>
+                <th>Deadhead mi</th>
+                <th>Input $/ton</th>
+                <th>Input RPM</th>
+                <th>Tons</th>
+                <th>Bushels</th>
+                <th>Gross $</th>
+                <th>Lane RPM</th>
+                <th>$ / ton</th>
+                <th>$ / bu</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2">Totals</td>
+                <td id="tLoaded"></td>
+                <td id="tDeadhead"></td>
+                <td></td><td></td>
+                <td id="tTons"></td>
+                <td id="tBushels"></td>
+                <td id="tGross"></td>
+                <td id="tRPM"></td>
+                <td></td><td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div id="resultsCards" hidden></div>
+        <div class="note">Overall RPM = Total Gross ÷ (Loaded + Deadhead). RPM note is shown below; proposal page also includes both all-miles and loaded-only RPM.</div>
+      </div>
+    </aside>
+
+    <!-- ======== Right: desktop hosts + mobile tabs ======== -->
+    <main class="right">
+      <!-- RIGHT-SIDE hosts for desktop/tablet (≥900px) -->
+      <div id="resultsHostRight"></div>
+      <div id="mapHostRight"><div id="map"></div></div>
+
+      <!-- MOBILE TAB BAR -->
+      <nav id="mTabs" class="tabs" aria-label="Sections" role="tablist">
+        <button role="tab" class="tabBtn" data-tab="lanes"   aria-selected="true">Lanes</button>
+        <button role="tab" class="tabBtn" data-tab="results">Results</button>
+        <button role="tab" class="tabBtn" data-tab="map">Map</button>
+      </nav>
+
+      <!-- PANELS (mobile only; blocks move into these hosts on small screens) -->
+      <section id="panel-lanes" class="tabpanel" role="tabpanel" aria-labelledby="tab-lanes" hidden>
+        <div class="row" style="gap:8px; margin:4px 0 10px">
+          <button type="button" class="btn primary" id="calc_m">Calculate & Map</button>
+          <button type="button" class="btn" id="clearAll_m">Clear all</button>
+          <button type="button" class="btn" id="openLib_m">Library</button>
+        </div>
+        <div id="lanesWrap"></div>
+      </section>
+
+      <section id="panel-results" class="tabpanel" role="tabpanel" aria-labelledby="tab-results" hidden>
+        <section class="section" id="resultsPanel" style="padding:12px 0">
+          <div id="resultsHostMobile"></div>
+        </section>
+      </section>
+
+      <section id="panel-map" class="tabpanel" role="tabpanel" aria-labelledby="tab-map" hidden>
+        <div id="mapHostMobile"></div>
+      </section>
+    </main>
   </div>
 
-  <!-- Lane template -->
-  <template id="laneTemplate">
-    <div class="card lane" data-index="">
-      <div class="lane-head">
-        <div class="lane-title">Lane <span class="lane-num"></span> <span class="muted">(Origin → Destination)</span></div>
-        <div class="lane-actions">
-          <button class="chip up" title="Move up">▲</button>
-          <button class="chip down" title="Move down">▼</button>
-          <button class="chip remove" title="Remove">Remove</button>
+  <!-- ======== Library Modal ======== -->
+  <dialog class="modal" id="libModal">
+    <div class="scrim" data-close></div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center; margin-bottom:6px">
+        <h2>Saved Library</h2>
+        <div class="row">
+          <button class="btn" id="libExport">Export JSON</button>
+          <label class="btn">
+            Import JSON
+            <input type="file" id="libImport" accept="application/json" style="display:none">
+          </label>
+          <button class="btn" data-close>Close</button>
         </div>
       </div>
+
       <div class="grid">
-        <div class="field">
-          <label class="label">Origin</label>
-          <input name="origin" placeholder="e.g., Shell Rock, IA" autocomplete="off">
-        </div>
-        <div class="field">
-          <label class="label">Destination</label>
-          <input name="destination" placeholder="e.g., Menomonie, WI" autocomplete="off">
-        </div>
-
-        <div class="field">
-          <label class="label">Rate ($/ton)</label>
-          <input type="number" inputmode="decimal" min="0" step="0.01" name="rate" placeholder="e.g., 24">
-        </div>
-        <div class="field">
-          <label class="label">Tons</label>
-          <input type="number" inputmode="decimal" min="0" step="0.01" name="tons" placeholder="e.g., 30">
+        <!-- List -->
+        <div class="lib-list" id="libList">
+          <div class="lib-topbar">
+            <input id="libSearch" type="text" placeholder="Search…" style="flex:1">
+            <button class="btn" id="libRefresh">Refresh</button>
+          </div>
+          <div class="lib-empty" id="libEmpty" hidden>No saved entries yet.</div>
+          <div id="libItems"></div>
         </div>
 
-        <div class="field">
-          <label class="label">RPM ($/mi)</label>
-          <input type="number" inputmode="decimal" min="0" step="0.01" name="rpm" placeholder="e.g., 3.25">
+        <!-- Save current -->
+        <div style="border:1px solid #223045; border-radius:10px; padding:10px; background:#0b1320">
+          <h3 style="margin:0 0 8px;font-size:15px">Save current lanes</h3>
+          <label>Entry name</label>
+          <input id="libName" type="text" placeholder="e.g., Cargill – Week 38 mix" />
+          <div class="row" style="margin-top:8px">
+            <button class="btn primary" id="libSave">Save</button>
+          </div>
+          <hr style="border:none;border-top:1px solid #223045;margin:12px 0">
+          <h3 style="margin:0 0 8px;font-size:15px">Selected entries → Calculator</h3>
+          <div class="row">
+            <button class="btn success" id="libAppend">Append selected</button>
+            <button class="btn" id="libReplace">Replace with selected</button>
+            <button class="btn warn" id="libDelete">Delete selected</button>
+          </div>
+          <p class="muted" style="margin-top:8px">Tip: select one or more entries below, then “Append selected” to add their lanes into your calculator.</p>
         </div>
-        <div class="field">
-          <label class="label">Bushels (optional)</label>
-          <input type="number" inputmode="decimal" min="0" step="1" name="bushels" placeholder="e.g., 950">
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Lane template -->
+  <template id="laneTmpl">
+    <div class="lane" draggable="true">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3>Lane <span class="laneIndex"></span> <small class="muted">(Origin → Destination)</small></h3>
+        <div class="row">
+          <button type="button" class="iconbtn moveUp" title="Move up">▲</button>
+          <button type="button" class="iconbtn moveDown" title="Move down">▼</button>
+          <button type="button" class="iconbtn del" title="Remove lane">Remove</button>
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:1">
+          <label>Origin</label>
+          <input type="text" class="origin" placeholder="City, ST or full address" />
+        </div>
+        <div style="flex:1">
+          <label>Destination</label>
+          <input type="text" class="destination" placeholder="City, ST or full address" />
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:1">
+          <label>Rate ($/ton)</label>
+          <input type="number" class="rate" placeholder="e.g., 19" step="0.01" />
+        </div>
+        <div style="flex:1">
+          <label>Tons</label>
+          <input type="number" class="tons" placeholder="e.g., 26" step="0.1" />
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:1">
+          <label>RPM ($/mi)</label>
+          <input type="number" class="rpm" placeholder="e.g., 3.25" step="0.01" />
+        </div>
+        <div style="flex:1">
+          <label>Bushels (optional)</label>
+          <input type="number" class="bushels" placeholder="e.g., 950" step="1" />
         </div>
       </div>
     </div>
   </template>
 
   <script>
-    // --- Simple state ---
-    const lanes = [];
+    let map, bounds, dirService;
+    const polylines = [];
+    let lastCompute = null;
 
-    // --- Elements ---
-    const lanesContainer = document.getElementById('lanesContainer');
-    const tpl = document.getElementById('laneTemplate');
-    const laneCountBadge = document.getElementById('laneCountBadge');
+    const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
+    const $  = (sel, ctx=document) => ctx.querySelector(sel);
+    const metersToMiles = m => m / 1609.344;
+    const fmtMi    = n => (Math.round(n * 10) / 10).toLocaleString(undefined,{minimumFractionDigits:1, maximumFractionDigits:1});
+    const fmtMoney = n => n.toLocaleString(undefined,{style:'currency',currency:'USD'});
 
-    const addLaneBtnTop = document.getElementById('addLaneBtnTop');
-    const addLaneBtnBottom = document.getElementById('addLaneBtnBottom');
-
-    const calcBtn = document.getElementById('calcBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const libraryBtn = document.getElementById('libraryBtn');
-
-    // --- Helpers ---
-    function renumber() {
-      [...lanesContainer.querySelectorAll('.lane')].forEach((el, i) => {
-        el.dataset.index = i;
-        el.querySelector('.lane-num').textContent = i + 1;
-      });
-      laneCountBadge.textContent = `(${lanesContainer.children.length})`;
+    /* -------- Toast -------- */
+    function toast(msg, ms=3000){
+      let el = document.getElementById('fp_toast');
+      if(!el){
+        el = document.createElement('div');
+        el.id = 'fp_toast';
+        Object.assign(el.style, {
+          position:'fixed', left:'50%', bottom:'16px', transform:'translateX(-50%)',
+          background:'#111924', color:'#e8f0fb', padding:'8px 12px',
+          border:'1px solid #2a3a4f', borderRadius:'10px', zIndex:99999,
+          boxShadow:'0 6px 18px rgba(0,0,0,.35)', font:'13px/1.3 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif',
+          transition:'opacity .25s', opacity:'1'
+        });
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.opacity = '1';
+      clearTimeout(el._t);
+      el._t = setTimeout(()=>{ el.style.opacity='0'; }, ms);
     }
 
-    function addLane(prefill = {}) {
-      const node = tpl.content.firstElementChild.cloneNode(true);
-      // Prefill if provided
-      node.querySelector('[name="origin"]').value = prefill.origin ?? '';
-      node.querySelector('[name="destination"]').value = prefill.destination ?? '';
-      node.querySelector('[name="rate"]').value = prefill.rate ?? '';
-      node.querySelector('[name="tons"]').value = prefill.tons ?? '';
-      node.querySelector('[name="rpm"]').value = prefill.rpm ?? '';
-      node.querySelector('[name="bushels"]').value = prefill.bushels ?? '';
+    document.addEventListener('DOMContentLoaded', setupUI);
 
-      // Wire actions
-      node.querySelector('.remove').addEventListener('click', () => {
-        node.remove();
-        renumber();
-      });
-      node.querySelector('.up').addEventListener('click', () => {
-        const prev = node.previousElementSibling;
-        if (prev) { lanesContainer.insertBefore(node, prev); renumber(); }
-      });
-      node.querySelector('.down').addEventListener('click', () => {
-        const next = node.nextElementSibling;
-        if (next) { lanesContainer.insertBefore(next, node); renumber(); }
+    function setupUI(){
+      // Desktop buttons
+      $('#addLane').addEventListener('click', ()=>addLane());
+      $('#calc').addEventListener('click', calculateAndMap);
+      $('#optimize').addEventListener('click', optimizeOrder);
+      $('#sample').addEventListener('click', loadSample);
+      $('#clearAll').addEventListener('click', clearAll);
+      $('#exportCsv').addEventListener('click', exportCSV);
+      $('#emailBtn').addEventListener('click', openProposal);
+      $('#rpmMode').addEventListener('change', ()=>{ persist(); });
+      $('#openLib').addEventListener('click', openLibrary);
+
+      // Mobile buttons
+      $('#calc_m')?.addEventListener('click', calculateAndMap);
+      $('#clearAll_m')?.addEventListener('click', clearAll);
+      $('#openLib_m')?.addEventListener('click', openLibrary);
+
+      const wrap = $('#lanes');
+      wrap.addEventListener('dragover', e=>{
+        e.preventDefault();
+        const dragging = document.querySelector('.lane.dragging');
+        if(!dragging) return;
+        const siblings = [...wrap.querySelectorAll('.lane:not(.dragging)')];
+        const next = siblings.find(sib => e.clientY <= sib.getBoundingClientRect().top + sib.offsetHeight/2);
+        wrap.insertBefore(dragging, next || null);
       });
 
-      lanesContainer.appendChild(node);
-      renumber();
+      setupTabs();
+      moveLanesForViewport();
+      moveResultsForViewport();
+      moveMapForViewport();
 
-      // Focus first empty field
-      const firstInput = node.querySelector('input[name="origin"]');
-      firstInput && firstInput.focus({preventScroll:false});
-      // Ensure visibility on mobile after adding
-      node.scrollIntoView({behavior:'smooth', block:'center'});
+      if(!loadFromURL()) loadFromStorage();
+      if(!$('#lanes').children.length) addLane();
+
+      window.addEventListener('resize', ()=>{
+        moveLanesForViewport();
+        moveResultsForViewport();
+        moveMapForViewport();
+      });
     }
 
-    // --- Top/Bottom buttons call the same function ---
-    addLaneBtnTop?.addEventListener('click', () => addLane());
-    addLaneBtnBottom?.addEventListener('click', () => addLane());
+    function safeAutocomplete(input){
+      try{
+        if (google?.maps?.places?.Autocomplete) {
+          new google.maps.places.Autocomplete(input, { fields:['geometry','name'], types:['geocode'] });
+        }
+      } catch(_){}
+    }
 
-    // --- Other controls (stubs to keep your flows) ---
-    calcBtn.addEventListener('click', () => {
-      // Hook your existing calculate + map logic here
-      alert('Calculate & Map pressed — wire to your existing logic.');
-    });
-    clearBtn.addEventListener('click', () => {
-      lanesContainer.innerHTML = '';
-      addLane(); // keep one fresh card visible
-    });
-    libraryBtn.addEventListener('click', () => {
-      alert('Open Library — wire to your Library modal/router.');
+    function initMap(){
+      try{
+        map = new google.maps.Map(document.getElementById('map'), {
+          center:{lat:41.878, lng:-93.097}, zoom:6, mapId:'fde12c0d9b0a8c86'
+        });
+        bounds = new google.maps.LatLngBounds();
+        dirService = new google.maps.DirectionsService();
+        window._fpDM = new google.maps.DistanceMatrixService();
+        safeAutocomplete($('#base'));
+      }catch(e){
+        console.warn('Maps init failed:', e);
+      }
+    }
+
+    /* -------- Tabs (mobile) + move lanes into panel -------- */
+    function moveLanesForViewport(){
+      const lanesEl = document.getElementById('lanes');
+      const wrap = document.getElementById('lanesWrap');
+      const left = document.querySelector('.left');
+      if(window.innerWidth <= 900){
+        if(lanesEl && wrap && !wrap.contains(lanesEl)) wrap.appendChild(lanesEl);
+      } else {
+        if(lanesEl && left && !left.contains(lanesEl)) left.appendChild(lanesEl);
+      }
+    }
+    function setupTabs(){
+      const tabbar = document.getElementById('mTabs');
+      if(!tabbar) return;
+      const panels = { lanes:$('#panel-lanes'), results:$('#panel-results'), map:$('#panel-map') };
+      const buttons = Array.from(tabbar.querySelectorAll('.tabBtn'));
+
+      function activate(name){
+        try{ localStorage.setItem('farmpro_tab', name); }catch(_){}
+        buttons.forEach(b=> b.setAttribute('aria-selected', b.dataset.tab===name ? 'true' : 'false'));
+        Object.entries(panels).forEach(([key, el])=>{
+          if(!el) return;
+          if(key===name) el.removeAttribute('hidden'); else el.setAttribute('hidden','');
+        });
+        if(name==='map' && window.google && map){
+          setTimeout(()=> google.maps.event.trigger(map, 'resize'), 50);
+        }
+      }
+
+      tabbar.addEventListener('click', e=>{
+        const btn = e.target.closest('.tabBtn'); if(!btn) return;
+        activate(btn.dataset.tab);
+      });
+      tabbar.addEventListener('keydown', e=>{
+        const idx = buttons.findIndex(b=>b.getAttribute('aria-selected')==='true');
+        if(idx<0) return;
+        if(e.key==='ArrowRight' || e.key==='ArrowLeft'){
+          e.preventDefault();
+          const dir = e.key==='ArrowRight' ? 1 : -1;
+          const next = (idx + dir + buttons.length) % buttons.length;
+          buttons[next].focus(); buttons[next].click();
+        }
+      });
+
+      let initial = 'lanes';
+      try{
+        const saved = localStorage.getItem('farmpro_tab');
+        if(saved && panels[saved]) initial = saved;
+      }catch(_){}
+      if(location.hash){
+        const h = location.hash.replace('#','').toLowerCase();
+        if(panels[h]) initial = h;
+      }
+      activate(initial);
+    }
+
+    /* -------- Move Results + Map (mobile vs desktop) -------- */
+    function moveResultsForViewport(){
+      const block = document.getElementById('resultsBlock');
+      const hostRight  = document.getElementById('resultsHostRight');
+      const hostMobile = document.getElementById('resultsHostMobile');
+      const left = document.querySelector('.left');
+      if(!block || !hostRight || !hostMobile) return;
+      if(window.innerWidth <= 900){
+        if(!hostMobile.contains(block)) hostMobile.appendChild(block);
+        if(left && left.contains(block)) left.removeChild(block);
+      } else {
+        if(!hostRight.contains(block)) hostRight.appendChild(block);
+      }
+    }
+    function moveMapForViewport(){
+      const mapEl = document.getElementById('map');
+      const hostRight  = document.getElementById('mapHostRight');
+      const hostMobile = document.getElementById('mapHostMobile');
+      if(!mapEl || !hostRight || !hostMobile) return;
+      if(window.innerWidth <= 900){
+        if(!hostMobile.contains(mapEl)) hostMobile.appendChild(mapEl);
+      } else {
+        if(!hostRight.contains(mapEl)) hostRight.appendChild(mapEl);
+      }
+      if(window.google && map){
+        setTimeout(()=> google.maps.event.trigger(map, 'resize'), 60);
+      }
+    }
+
+    /* -------- Lane CRUD -------- */
+    function addLane(data={}){
+      const wrap = $('#lanes');
+      const tmpl = $('#laneTmpl');
+      const node = tmpl.content.firstElementChild.cloneNode(true);
+      wrap.appendChild(node);
+      refreshLaneIndices();
+
+      const o = node.querySelector('.origin');
+      const d = node.querySelector('.destination');
+      safeAutocomplete(o); safeAutocomplete(d);
+
+      if(data.origin) o.value = data.origin;
+      if(data.destination) d.value = data.destination;
+      if(data.rate!=null) node.querySelector('.rate').value = data.rate;
+      if(data.tons!=null) node.querySelector('.tons').value = data.tons;
+      if(data.rpm!=null) node.querySelector('.rpm').value = data.rpm;
+      if(data.bushels!=null) node.querySelector('.bushels').value = data.bushels;
+
+      node.querySelector('.del').addEventListener('click', ()=>{
+        node.remove(); refreshLaneIndices(); persist();
+      });
+      node.querySelector('.moveUp').addEventListener('click', ()=> moveLane(node,-1));
+      node.querySelector('.moveDown').addEventListener('click', ()=> moveLane(node,+1));
+
+      $$('.origin,.destination,.rate,.tons,.rpm,.bushels', node).forEach(inp=>{
+        inp.addEventListener('change', persist);
+        inp.addEventListener('blur', persist);
+      });
+      node.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain','drag'); node.classList.add('dragging'); });
+      node.addEventListener('dragend',   ()=>{ node.classList.remove('dragging'); persist(); refreshLaneIndices(); });
+
+      persist();
+    }
+
+    function moveLane(node, dir){
+      const wrap = $('#lanes');
+      const lanes = $$('#lanes .lane');
+      const idx = lanes.indexOf(node);
+      const newIdx = idx + dir;
+      if(newIdx < 0 || newIdx >= lanes.length) return;
+      if(dir < 0){ wrap.insertBefore(node, lanes[newIdx]); }
+      else { wrap.insertBefore(node, lanes[newIdx].nextSibling); }
+      refreshLaneIndices(); persist();
+    }
+
+    function refreshLaneIndices(){
+      $$('#lanes .lane').forEach((lane, i)=>{
+        lane.querySelector('.laneIndex').textContent = i+1;
+      });
+    }
+
+    /* -------- Map helpers -------- */
+    function clearMap(){
+      polylines.forEach(p=>p.setMap && p.setMap(null));
+      polylines.length = 0;
+      bounds = new google.maps.LatLngBounds();
+    }
+    async function routeMiles(origin, destination){
+      return new Promise((resolve, reject)=>{
+        if(!dirService){ reject(new Error('Map not initialized')); return; }
+        dirService.route({ origin, destination, travelMode:'DRIVING', region:'US' },
+          (res, status)=>{
+            if(status === 'OK'){
+              const leg = res.routes[0].legs[0];
+              const path = res.routes[0].overview_path;
+              resolve({ miles: metersToMiles(leg.distance.value), path });
+            } else {
+              reject(new Error(status+': '+origin+' → '+destination));
+            }
+          }
+        );
+      });
+    }
+    function drawPath(path, {color='#1a73e8', weight=4, dash=false}={}){
+      if(!map) return;
+      const polyline = new google.maps.Polyline({
+        map, path, strokeColor: color, strokeOpacity: 1, strokeWeight: weight,
+        icons: dash ? [{icon:{path:'M 0,-1 0,1', strokeOpacity:1, scale:2}, offset:'0', repeat:'22px'}] : undefined
+      });
+      polylines.push(polyline);
+      path.forEach(ll=>bounds.extend(ll));
+      map.fitBounds(bounds, {top:24,right:24,bottom:24,left:24});
+    }
+
+    /* -------- Optimizer -------- */
+    const _deadheadCache = new Map();
+    async function deadheadMiles(a, b){
+      const key = a+'|'+b;
+      if(_deadheadCache.has(key)) return _deadheadCache.get(key);
+      let miles = await new Promise((resolve)=>{
+        const dm = window._fpDM;
+        if(!dm){ resolve(Infinity); return; }
+        dm.getDistanceMatrix(
+          {origins:[a], destinations:[b], travelMode:'DRIVING', region:'US', unitSystem:google.maps.UnitSystem.IMPERIAL},
+          (res, status)=>{
+            if(status==='OK' && res?.rows?.[0]?.elements?.[0]?.status==='OK'){
+              resolve(res.rows[0].elements[0].distance.value / 1609.344);
+            } else { resolve(Infinity); }
+          }
+        );
+      });
+      if(!isFinite(miles)){
+        try{ const r = await routeMiles(a, b); miles = r.miles; await new Promise(r=>setTimeout(r, 75)); }
+        catch{ miles = Infinity; }
+      }
+      _deadheadCache.set(key, miles);
+      return miles;
+    }
+    async function buildDeadheadMatrix(lanes, base, includeStart, returnTo){
+      const n = lanes.length;
+      const M = Array.from({length:n},()=>Array(n).fill(Infinity));
+      for(let i=0;i<n;i++){
+        for(let j=0;j<n;j++){ if(i!==j) M[i][j] = await deadheadMiles(lanes[i].destination, lanes[j].origin); }
+      }
+      const baseTo = Array(n).fill(Infinity);
+      const toBase = Array(n).fill(Infinity);
+      if(base && includeStart){ for(let j=0;j<n;j++) baseTo[j] = await deadheadMiles(base, lanes[j].origin); }
+      if(base && returnTo){ for(let i=0;i<n;i++) toBase[i] = await deadheadMiles(lanes[i].destination, base); }
+      return {M, baseTo, toBase};
+    }
+    function* permutations(arr){
+      const a = arr.slice(), c = Array(a.length).fill(0);
+      yield a.slice(); let i = 0;
+      while(i < a.length){
+        if(c[i] < i){ if(i % 2 === 0){ [a[0], a[i]] = [a[i], a[0]]; } else { [a[c[i]], a[i]] = [a[i], a[c[i]]]; } yield a.slice(); c[i]++; i = 0; }
+        else { c[i] = 0; i++; }
+      }
+    }
+    function costOfOrder(order, M, baseTo, toBase){
+      let dead=0; if(baseTo?.length){ const first = baseTo[order[0]]; if(!isFinite(first)) return Infinity; dead += first; }
+      for(let k=0;k<order.length-1;k++){ const c = M[order[k]][order[k+1]]; if(!isFinite(c)) return Infinity; dead += c; }
+      if(toBase?.length){ const back = toBase[order[order.length-1]]; if(!isFinite(back)) return Infinity; dead += back; }
+      return dead;
+    }
+    async function optimizeOrder(){
+      const lanes = readLanes();
+      if(lanes.length < 2){ toast('Add at least two lanes to optimize'); return; }
+      const base = $('#base').value.trim();
+      const includeStart = $('#includeStartDH').checked && !!base;
+      const returnTo     = $('#returnToBase').checked && !!base;
+      toast('Computing best order…');
+      try{
+        const {M, baseTo, toBase} = await buildDeadheadMatrix(lanes, base, includeStart, returnTo);
+        const n = lanes.length;
+        let bestOrder = [...Array(n).keys()];
+        let bestCost  = Infinity;
+        if(n <= 7){
+          for(const ord of permutations(bestOrder)){
+            const c = costOfOrder(ord, M, includeStart?baseTo:[], returnTo?toBase:[]);
+            if(c < bestCost){ bestCost = c; bestOrder = ord.slice(); }
+          }
+        } else {
+          let start = 0;
+          if(includeStart){
+            let min = Infinity;
+            for(let j=0;j<n;j++){ if(baseTo[j] < min){ min = baseTo[j]; start = j; } }
+          } else {
+            let bestAvg = Infinity;
+            for(let i=0;i<n;i++){
+              const vals = M[i].filter(v=>isFinite(v));
+              const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : Infinity;
+              if(avg < bestAvg){ bestAvg = avg; start = i; }
+            }
+          }
+          const used = Array(n).fill(false); used[start]=true;
+          const ord = [start];
+          for(let step=1; step<n; step++){
+            const i = ord[ord.length-1];
+            let bestJ=-1, best=Infinity;
+            for(let j=0;j<n;j++){
+              if(used[j]) continue;
+              const c = M[i][j];
+              if(c < best){ best=c; bestJ=j; }
+            }
+            if(bestJ === -1){ bestJ = used.indexOf(false); }
+            used[bestJ] = true; ord.push(bestJ);
+          }
+          bestOrder = ord;
+          bestCost = costOfOrder(ord, M, includeStart?baseTo:[], returnTo?toBase:[]);
+        }
+        if(!isFinite(bestCost)){ toast('Could not compute a valid order.'); return; }
+        const wrap  = $('#lanes');
+        const nodes = Array.from($('#lanes').querySelectorAll('.lane'));
+        bestOrder.map(i => nodes[i]).forEach(n => wrap.appendChild(n));
+        refreshLaneIndices(); persist();
+        toast(`Order optimized. Est. deadhead: ${fmtMi(bestCost)} mi`);
+        await calculateAndMap();
+      }catch(err){ console.warn('optimizeOrder error:', err); alert('Could not optimize (API limits or address errors). Try again.'); }
+    }
+
+    /* -------- Core compute + render -------- */
+    async function calculateAndMap(){
+      const lanes = readLanes();
+      if(lanes.length===0){ alert('Add at least one lane'); return; }
+      if(!dirService){ alert('Map not ready yet.'); return; }
+
+      clearMap();
+
+      const base = $('#base').value.trim();
+      const includeStartDH = $('#includeStartDH').checked && base;
+      const returnToBase   = $('#returnToBase').checked && base;
+      const rpmMode        = $('#rpmMode').value;
+
+      let totals = { loaded:0, deadhead:0, gross:0, tons:0, bushels:0 };
+      const perLane = [];
+      let prevDest = null;
+
+      if(includeStartDH){
+        try{ const {miles, path} = await routeMiles(base, lanes[0].origin); totals.deadhead += miles; drawPath(path, {color:'#808080', weight:4, dash:true}); prevDest = lanes[0].origin; }
+        catch{ prevDest = lanes[0].origin; toast('Could not route Base → first origin (continuing)'); }
+      }
+
+      for(let i=0;i<lanes.length;i++){
+        const L = lanes[i];
+        if(i>0 || (!includeStartDH && i===0 && prevDest)){
+          const from = perLane.length ? perLane[perLane.length-1].destination : prevDest;
+          if(from){
+            try{ const {miles, path} = await routeMiles(from, L.origin); totals.deadhead += miles; drawPath(path, {color:'#808080', weight:4, dash:true}); }
+            catch{ toast(`Could not route deadhead to ${L.origin} (continuing)`); }
+          }
+        }
+        try{
+          const {miles, path} = await routeMiles(L.origin, L.destination);
+          totals.loaded += miles; drawPath(path, {color:'#1a73e8', weight:5});
+          perLane.push({ index:i+1, origin:L.origin, destination:L.destination, loaded:miles, deadhead:0,
+            rate:Number(L.rate)||0, tons:isFinite(L.tons)?Number(L.tons):NaN, rpm:isFinite(L.rpm)?Number(L.rpm):NaN,
+            bushels:isFinite(L.bushels)?Number(L.bushels):NaN, gross:0 });
+        }catch{
+          toast(`Could not route ${L.origin} → ${L.destination} (counting as 0 mi)`);
+          perLane.push({ index:i+1, origin:L.origin, destination:L.destination, loaded:0, deadhead:0,
+            rate:Number(L.rate)||0, tons:isFinite(L.tons)?Number(L.tons):NaN, rpm:isFinite(L.rpm)?Number(L.rpm):NaN,
+            bushels:isFinite(L.bushels)?Number(L.bushels):NaN, gross:0 });
+        }
+      }
+
+      perLane.forEach(pl=>pl.deadhead=0);
+      const dhPairs=[]; if(includeStartDH && perLane[0]) dhPairs.push([base, perLane[0].origin, 0]);
+      for(let i=1;i<perLane.length;i++) dhPairs.push([perLane[i-1].destination, perLane[i].origin, i]);
+      const dhRes = await Promise.all(dhPairs.map(([a,b,idx]) => routeMiles(a,b).then(r=>({idx,miles:r.miles})).catch(_=>({idx,miles:0}))));
+      dhRes.forEach(({idx,miles})=>{ if(idx>=0 && perLane[idx]) perLane[idx].deadhead += miles; });
+
+      let finalDhMiles = 0;
+      if(returnToBase && perLane.length){
+        try{ const last = perLane[perLane.length-1]; const {miles, path} = await routeMiles(last.destination, base);
+          finalDhMiles = miles; totals.deadhead += miles; drawPath(path, {color:'#808080', weight:4, dash:true}); }
+        catch{ toast('Could not route final deadhead back to Base (continuing)'); }
+      }
+
+      perLane.forEach(L=>{
+        const hasRPM = isFinite(L.rpm) && L.rpm>0;
+        const hasRateTons = isFinite(L.rate) && L.rate>0 && isFinite(L.tons) && L.tons>0;
+        const milesForRPM = (rpmMode === 'all') ? (L.loaded + L.deadhead) : L.loaded;
+        L.gross = hasRPM ? (L.rpm * milesForRPM) : (hasRateTons ? L.rate * L.tons : 0);
+        if(isFinite(L.tons)) totals.tons += (L.tons||0);
+        if(isFinite(L.bushels)) totals.bushels += (L.bushels||0);
+        totals.gross += (L.gross||0);
+      });
+
+      lastCompute = { perLane, totals, finalDhMiles, base, includeStartDH, returnToBase, url: location.href, rpmMode };
+      renderResults(perLane, totals, { finalDhMiles, rpmMode });
+      persist();
+      updateShareURL();
+    }
+
+    function readLanes(){
+      const list = [];
+      $$('#lanes .lane').forEach(el=>{
+        const origin = el.querySelector('.origin').value.trim();
+        const destination = el.querySelector('.destination').value.trim();
+        const rate = parseFloat(el.querySelector('.rate').value);
+        const tons = parseFloat(el.querySelector('.tons').value);
+        const rpm = parseFloat(el.querySelector('.rpm').value);
+        const bushels = parseFloat(el.querySelector('.bushels').value);
+        if(origin && destination){ list.push({origin, destination, rate, tons, rpm, bushels}); }
+      });
+      return list;
+    }
+
+    function renderResults(perLane, totals, opts={}){
+      const { finalDhMiles=0, rpmMode='loaded' } = opts;
+      const table = $('#resultsTable');
+      const tbody = table.querySelector('tbody');
+      tbody.innerHTML = '';
+
+      let loaded = 0, deadhead = 0, gross = 0, sumTons=0, sumBushels=0;
+      perLane.forEach(L=>{ loaded += L.loaded; deadhead += L.deadhead; gross += L.gross; sumTons += (isFinite(L.tons)?(L.tons||0):0); sumBushels += (isFinite(L.bushels)?(L.bushels||0):0); });
+      deadhead += finalDhMiles;
+
+      perLane.forEach(L=>{
+        const laneMilesAll = (L.loaded + L.deadhead);
+        const laneRPM = L.gross / (laneMilesAll || 1);
+        const ratePerTon = (isFinite(L.tons) && L.tons>0) ? (L.gross / L.tons) : NaN;
+        const ratePerBu  = (isFinite(L.bushels) && L.bushels>0) ? (L.gross / L.bushels) : NaN;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${L.index}</td>
+          <td style="text-align:left">${escapeHtml(L.origin)} → ${escapeHtml(L.destination)}</td>
+          <td>${fmtMi(L.loaded)}</td>
+          <td>${fmtMi(L.deadhead)}</td>
+          <td>${(isFinite(L.rate)&&L.rate>0)?Number(L.rate).toFixed(2):''}</td>
+          <td>${(isFinite(L.rpm)&&L.rpm>0)?Number(L.rpm).toFixed(2):''}</td>
+          <td>${(isFinite(L.tons)&&L.tons>0)?Number(L.tons).toFixed(1):''}</td>
+          <td>${(isFinite(L.bushels)&&L.bushels>0)?Number(L.bushels):''}</td>
+          <td>${fmtMoney(L.gross||0)}</td>
+          <td>${laneRPM?laneRPM.toFixed(2):''}</td>
+          <td>${isFinite(ratePerTon)?ratePerTon.toFixed(2):''}</td>
+          <td>${isFinite(ratePerBu)?ratePerBu.toFixed(2):''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      $('#tLoaded').textContent = fmtMi(loaded);
+      $('#tDeadhead').textContent = fmtMi(deadhead);
+      $('#tGross').textContent = fmtMoney(gross);
+      $('#tTons').textContent = (sumTons>0)?sumTons.toFixed(1):'';
+      $('#tBushels').textContent = (sumBushels>0)?sumBushels.toFixed(0):'';
+      const totalMiles = loaded + deadhead;
+      const rpmAll = gross / (totalMiles || 1);
+      $('#tRPM').textContent = rpmAll.toFixed(2);
+      table.hidden = false;
+
+      const noteText = (rpmMode==='all')
+        ? 'Overall RPM = Total Gross ÷ (Loaded + Deadhead). RPM uses ALL miles (loaded + allocated deadhead).'
+        : 'Overall RPM = Total Gross ÷ (Loaded + Deadhead). RPM uses LOADED miles only.';
+      document.querySelector('.note').textContent = finalDhMiles>0
+        ? `${noteText} Includes ${fmtMi(finalDhMiles)} mi return-to-base deadhead.`
+        : noteText;
+
+      // Mobile cards
+      const cardsWrap = $('#resultsCards');
+      if(cardsWrap){
+        cardsWrap.innerHTML = '';
+        cardsWrap.hidden = false;
+
+        perLane.forEach(L=>{
+          const laneMilesAll = (L.loaded + L.deadhead);
+          const laneRPM = L.gross / (laneMilesAll || 1);
+          const ratePerTon = (isFinite(L.tons) && L.tons>0) ? (L.gross / L.tons) : NaN;
+          const ratePerBu  = (isFinite(L.bushels) && L.bushels>0) ? (L.gross / L.bushels) : NaN;
+
+          const card = document.createElement('div');
+          card.className = 'result-card';
+          card.innerHTML = `
+            <div class="hdr">
+              <div class="route">Lane ${L.index} • ${escapeHtml(L.origin)} → ${escapeHtml(L.destination)}</div>
+              <div class="kpi"><span class="lab">Gross</span>${fmtMoney(L.gross||0)}</div>
+            </div>
+            <div class="kpis">
+              <div class="kpi"><span class="lab">Loaded mi</span>${fmtMi(L.loaded)}</div>
+              <div class="kpi"><span class="lab">Deadhead mi</span>${fmtMi(L.deadhead)}</div>
+              <div class="kpi"><span class="lab">Lane RPM</span>${laneRPM?laneRPM.toFixed(2):'-'}</div>
+              <div class="kpi"><span class="lab">$ / ton</span>${isFinite(ratePerTon)?ratePerTon.toFixed(2):'-'}</div>
+              <div class="kpi"><span class="lab">Tons</span>${(isFinite(L.tons)&&L.tons>0)?L.tons.toFixed(1):'-'}</div>
+              <div class="kpi"><span class="lab">$ / bu</span>${isFinite(ratePerBu)?ratePerBu.toFixed(2):'-'}</div>
+            </div>
+          `;
+          cardsWrap.appendChild(card);
+        });
+
+        const totalsCard = document.createElement('div');
+        totalsCard.className = 'result-card';
+        totalsCard.innerHTML = `
+          <div class="hdr">
+            <div class="route">Totals</div>
+            <div class="kpi"><span class="lab">Overall RPM</span>${rpmAll.toFixed(2)}</div>
+          </div>
+          <div class="kpis">
+            <div class="kpi"><span class="lab">Loaded mi</span>${fmtMi(loaded)}</div>
+            <div class="kpi"><span class="lab">Deadhead mi</span>${fmtMi(deadhead)}</div>
+            <div class="kpi"><span class="lab">Tons</span>${sumTons?sumTons.toFixed(1):'-'}</div>
+            <div class="kpi"><span class="lab">Bushels</span>${sumBushels?Math.round(sumBushels):'-'}</div>
+            <div class="kpi"><span class="lab">Gross</span>${fmtMoney(gross)}</div>
+          </div>
+        `;
+        cardsWrap.appendChild(totalsCard);
+      }
+    }
+
+    function exportCSV(){
+      const perLane = collectPerLaneFromTable();
+      if(!perLane.length){ alert('No results yet. Click Calculate & Map first.'); return; }
+      const headers = ['Lane','Origin','Destination','Loaded_mi','Deadhead_mi','Input_rate_per_ton','Input_RPM','Tons','Bushels','Gross','Lane_RPM','Rate_per_ton','Rate_per_bu'];
+      const rows = perLane.map(L=>[
+        L.index,
+        '"'+L.origin.replaceAll('"','""')+'"',
+        '"'+L.destination.replaceAll('"','""')+'"',
+        L.loaded.toFixed(1),
+        L.deadhead.toFixed(1),
+        (isFinite(L.rate)?L.rate.toFixed(2):''),
+        (isFinite(L.rpm)?L.rpm.toFixed(2):''),
+        (isFinite(L.tons)?L.tons.toFixed(1):''),
+        (isFinite(L.bushels)?Math.round(L.bushels):''),
+        (L.gross||0).toFixed(2),
+        (L.gross / (L.loaded+L.deadhead||1)).toFixed(2),
+        (isFinite(L.ratePerTon)?L.ratePerTon.toFixed(2):''),
+        (isFinite(L.ratePerBu)?L.ratePerBu.toFixed(2):'')
+      ]);
+      const csv = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+      const blob = new Blob([csv],{type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement('a'), {href:url, download:'lanes_export.csv'});
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    /* -------- Proposal plain text -------- */
+    function buildProposalPlainText(perLane, ctx){
+      const { base, flags=[], loaded, deadhead, gross, url } = ctx;
+      const lines = [];
+      const num = (n, d=1)=> (Math.round(n*10)/10).toLocaleString(undefined,{minimumFractionDigits:d, maximumFractionDigits:d});
+      lines.push('Proposed Lanes Summary');
+      if(base) lines.push('Base/Yard: ' + base);
+      if(flags.length) lines.push('Notes: ' + flags.join('; '));
+      lines.push('');
+      perLane.forEach(L=>{
+        const laneMilesAll = (L.loaded + L.deadhead);
+        const laneRPM = L.gross / (laneMilesAll || 1);
+        const rpt = (Number.isFinite(L.tons)&&L.tons>0) ? (L.gross/L.tons) : NaN;
+        const rpb = (Number.isFinite(L.bushels)&&L.bushels>0) ? (L.gross/L.bushels) : NaN;
+        lines.push(`Lane ${L.index}: ${L.origin} → ${L.destination}`);
+        lines.push(`  Loaded: ${num(L.loaded)} mi | Deadhead: ${num(L.deadhead)} mi`);
+        lines.push(`  Inputs: $${Number.isFinite(L.rate)&&L.rate>0?L.rate.toFixed(2):'-'}/ton | RPM $${Number.isFinite(L.rpm)&&L.rpm>0?L.rpm.toFixed(2):'-'} | Tons ${Number.isFinite(L.tons)&&L.tons>0?L.tons.toFixed(1):'-'} | Bushels ${Number.isFinite(L.bushels)&&L.bushels>0?Math.round(L.bushels):'-'}`);
+        lines.push(`  Gross: ${fmtMoney(L.gross||0)} | Lane RPM: $${laneRPM?laneRPM.toFixed(2):'-'} | $/ton: ${Number.isFinite(rpt)?rpt.toFixed(2):'-'} | $/bu: ${Number.isFinite(rpb)?rpb.toFixed(2):'-'}`);
+        lines.push('');
+      });
+      lines.push(`TOTAL Loaded: ${num(loaded)} mi`);
+      lines.push(`TOTAL Deadhead: ${num(deadhead)} mi`);
+      lines.push(`TOTAL Miles: ${num(loaded+deadhead)} mi`);
+      lines.push(`TOTAL Gross: ${fmtMoney(gross)}`);
+      lines.push(`Overall RPM (all miles): $${(gross/(loaded+deadhead||1)).toFixed(2)} | Loaded-only RPM: $${(gross/(loaded||1)).toFixed(2)}`);
+      lines.push('');
+      lines.push('Open in calculator: ' + url);
+      return lines.join('\n');
+    }
+
+    function openProposal(){
+      if(!lastCompute){ alert('Calculate first, then open the proposal.'); return; }
+      const { perLane, finalDhMiles, base, includeStartDH, returnToBase, url, rpmMode } = lastCompute;
+
+      let loaded=0, deadhead=0, gross=0, sumTons=0, sumBushels=0;
+      perLane.forEach(L=>{ loaded+=L.loaded; deadhead+=L.deadhead; gross+=L.gross; sumTons+=(isFinite(L.tons)?(L.tons||0):0); sumBushels+=(isFinite(L.bushels)?(L.bushels||0):0); });
+      deadhead += finalDhMiles;
+
+      const flags = [];
+      if(includeStartDH && base) flags.push('Base→first origin DH included');
+      if(returnToBase && base)   flags.push('Final DH back to Base included');
+      flags.push(rpmMode==='all' ? 'RPM uses ALL miles' : 'RPM uses LOADED miles only');
+
+      const plainText = buildProposalPlainText(perLane, {base, flags, loaded, deadhead, gross, url});
+
+      const esc = s => (s??'').toString().replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+      const rowsHtml = perLane.map(L=>{
+        const laneRPM = L.gross / (L.loaded+L.deadhead||1);
+        const rpt = (isFinite(L.tons)&&L.tons>0) ? (L.gross/L.tons) : NaN;
+        const rpb = (isFinite(L.bushels)&&L.bushels>0) ? (L.gross/L.bushels) : NaN;
+        return `<tr>
+          <td style="text-align:center">${L.index}</td>
+          <td>${esc(L.origin)} → ${esc(L.destination)}</td>
+          <td style="text-align:right">${fmtMi(L.loaded)}</td>
+          <td style="text-align:right">${fmtMi(L.deadhead)}</td>
+          <td style="text-align:right">${(isFinite(L.rate)&&L.rate>0)?L.rate.toFixed(2):''}</td>
+          <td style="text-align:right">${(isFinite(L.rpm)&&L.rpm>0)?L.rpm.toFixed(2):''}</td>
+          <td style="text-align:right">${(isFinite(L.tons)&&L.tons>0)?L.tons.toFixed(1):''}</td>
+          <td style="text-align:right">${(isFinite(L.bushels)&&L.bushels>0)?Math.round(L.bushels):''}</td>
+          <td style="text-align:right">${fmtMoney(L.gross||0)}</td>
+          <td style="text-align:right">${laneRPM?laneRPM.toFixed(2):''}</td>
+          <td style="text-align:right">${isFinite(rpt)?rpt.toFixed(2):''}</td>
+          <td style="text-align:right">${isFinite(rpb)?rpb.toFixed(2):''}</td>
+        </tr>`;
+      }).join('');
+
+      const html = `<!doctype html>
+<html><head><meta charset="utf-8" />
+  <title>Lane Proposal – FarmPro</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body{font:14px/1.45 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0b1320;margin:24px}
+    h1{margin:0 0 6px;font-size:20px}
+    .muted{color:#586278}
+    .actions{margin:12px 0;display:flex;gap:8px;flex-wrap:wrap}
+    button{padding:8px 10px;border-radius:8px;border:1px solid #c8d1e0;background:#0d63ff;color:#fff;cursor:pointer}
+    button.secondary{background:#fff;color:#0b1320;border-color:#c8d1e0}
+    a.button{display:inline-block;text-decoration:none}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px;border-bottom:1px solid #e5e9f2}
+    th{text-align:right;background:#f6f8fc}
+    th:first-child,td:first-child{text-align:center}
+    th:nth-child(2),td:nth-child(2){text-align:left}
+    tfoot td{font-weight:700}
+    pre{white-space:pre-wrap;background:#f6f8fc;border:1px solid #e5e9f2;border-radius:8px;padding:10px;margin-top:12px}
+  </style>
+</head>
+<body>
+  <h1>Proposed Lanes Summary</h1>
+  ${base?`<div class="muted">Base/Yard: ${esc(base)}</div>`:''}
+  ${flags.length?`<div class="muted">Notes: ${esc(flags.join('; '))}</div>`:''}
+  <div class="actions">
+    <button id="copy">Copy Plain Text</button>
+    <button id="print" class="secondary">Print / Save PDF</button>
+    <a class="button" href="${esc(url)}" target="_blank" rel="noopener"><button class="secondary">Open Calculator</button></a>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Origin → Destination</th><th>Loaded mi</th><th>Deadhead mi</th>
+        <th>$ / ton (in)</th><th>RPM (in)</th><th>Tons</th><th>Bushels</th><th>Gross</th><th>Lane RPM</th><th>$ / ton</th><th>$ / bu</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+    <tfoot>
+      <tr>
+        <td colspan="2">Totals</td>
+        <td style="text-align:right">${fmtMi(loaded)}</td>
+        <td style="text-align:right">${fmtMi(deadhead)}</td>
+        <td></td><td></td>
+        <td style="text-align:right">${sumTons?sumTons.toFixed(1):''}</td>
+        <td style="text-align:right">${sumBushels?sumBushels.toFixed(0):''}</td>
+        <td style="text-align:right">${fmtMoney(gross)}</td>
+        <td style="text-align:right">${(gross/(loaded+deadhead||1)).toFixed(2)}</td>
+        <td></td><td></td>
+      </tr>
+    </tfoot>
+  </table>
+  <div style="margin-top:10px">Overall RPM (all miles): <b>$${(gross/(loaded+deadhead||1)).toFixed(2)}</b> — Loaded-only RPM: <b>$${(gross/(loaded||1)).toFixed(2)}</b></div>
+  <pre id="plain">${esc(plainText)}</pre>
+  <script>
+    (function(){
+      const copyBtn = document.getElementById('copy');
+      const printBtn = document.getElementById('print');
+      const text = document.getElementById('plain').textContent;
+      copyBtn.addEventListener('click', ()=>{
+        if(navigator.clipboard?.writeText){
+          navigator.clipboard.writeText(text).then(()=>alert('Copied to clipboard.'))
+            .catch(()=>{
+              const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta);
+              ta.select(); document.execCommand('copy'); ta.remove(); alert('Copied to clipboard.');
+            });
+        } else {
+          const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta);
+          ta.select(); document.execCommand('copy'); ta.remove(); alert('Copied to clipboard.');
+        }
+      });
+      printBtn.addEventListener('click', ()=>window.print());
+    })();
+  <\/script>
+</body></html>`;
+      const blob = new Blob([html], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
+      const w = window.open(blobUrl, '_blank', 'noopener');
+      if(!w){ const a = document.createElement('a'); a.href = blobUrl; a.target = '_blank'; a.rel = 'noopener'; a.download = 'proposal.html'; document.body.appendChild(a); a.click(); a.remove(); }
+      setTimeout(()=>URL.revokeObjectURL(blobUrl), 60000);
+    }
+
+    function collectPerLaneFromTable(){
+      const rows = Array.from($('#resultsTable tbody').rows);
+      if(!rows.length) return [];
+      return rows.map(tr=>{
+        const tds = tr.cells;
+        const index = Number(tds[0].textContent);
+        const pair = tds[1].textContent;
+        const loaded = Number(tds[2].textContent.replace(/,/g,''));
+        const deadhead = Number(tds[3].textContent.replace(/,/g,''));
+        const rate = Number(tds[4].textContent);
+        const rpm  = Number(tds[5].textContent);
+        const tons = Number(tds[6].textContent);
+        const bushels = Number(tds[7].textContent);
+        const gross = Number(tds[8].textContent.replace(/[$,]/g,''));
+        const [origin, destination] = pair.split(' → ').map(s=>s.trim());
+        const laneRPM = gross / (loaded+deadhead || 1);
+        const ratePerTon = (isFinite(tons)&&tons>0)?(gross/tons):NaN;
+        const ratePerBu  = (isFinite(bushels)&&bushels>0)?(gross/bushels):NaN;
+        return {index, origin, destination, loaded, deadhead, rate, rpm, tons, bushels, gross, laneRPM, ratePerTon, ratePerBu};
+      });
+    }
+
+    function escapeHtml(str){ return (str??'').toString().replace(/[&<>"]/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s])); }
+
+    /* -------- Persistence / URL share -------- */
+    function persist(){
+      const data = {
+        base: $('#base').value.trim(),
+        includeStartDH: $('#includeStartDH').checked,
+        returnToBase: $('#returnToBase').checked,
+        rpmMode: $('#rpmMode').value,
+        lanes: readLanes()
+      };
+      localStorage.setItem('farmpro_lanes', JSON.stringify(data));
+    }
+    function loadFromStorage(){
+      try{
+        const raw = localStorage.getItem('farmpro_lanes');
+        if(!raw) { addLane(); return true; }
+        const data = JSON.parse(raw);
+        $('#base').value = data.base||'';
+        $('#includeStartDH').checked = !!data.includeStartDH;
+        $('#returnToBase').checked = !!data.returnToBase;
+        $('#rpmMode').value = data.rpmMode || 'loaded';
+        $('#lanes').innerHTML='';
+        (data.lanes||[]).forEach(addLane);
+        if(!(data.lanes||[]).length) addLane();
+        return true;
+      }catch(e){ addLane(); return true; }
+    }
+    function updateShareURL(){
+      const payload = {
+        base: $('#base').value.trim(),
+        i: $('#includeStartDH').checked?1:0,
+        r: $('#returnToBase').checked?1:0,
+        m: $('#rpmMode').value,
+        lanes: readLanes()
+      };
+      const qp = new URLSearchParams({state: btoa(unescape(encodeURIComponent(JSON.stringify(payload))))});
+      const url = location.origin + location.pathname + '?' + qp.toString();
+      history.replaceState(null,'',url);
+    }
+    function loadFromURL(){
+      const s = new URLSearchParams(location.search).get('state');
+      if(!s) return false;
+      try{
+        const data = JSON.parse(decodeURIComponent(escape(atob(s))));
+        $('#base').value = data.base||'';
+        $('#includeStartDH').checked = !!data.i;
+        $('#returnToBase').checked = !!data.r;
+        $('#rpmMode').value = data.m || 'loaded';
+        $('#lanes').innerHTML='';
+        (data.lanes||[]).forEach(addLane);
+        if(!(data.lanes||[]).length) addLane();
+        return true;
+      }catch(e){ return false; }
+    }
+
+    function loadSample(){
+      $('#lanes').innerHTML='';
+      addLane({origin:'Mankato, MN', destination:'Lake Mills, WI', rate:38, tons:26, rpm:3.10, bushels:900});
+      addLane({origin:'Cambria, WI', destination:'Milwaukee, WI', rate:14, tons:26});
+      addLane({origin:'Racine, WI', destination:'East Dubuque, IL', rpm:3.45, bushels:950});
+      addLane({origin:'East Dubuque, IL', destination:'Stanhope, IA', rate:24, tons:26});
+      $('#base').value = 'Fairbank, IA';
+      $('#includeStartDH').checked = true;
+      $('#returnToBase').checked = true;
+      $('#rpmMode').value = 'all';
+      persist();
+    }
+    function clearAll(){
+      if(!confirm('Clear all lanes and settings?')) return;
+      localStorage.removeItem('farmpro_lanes');
+      $('#lanes').innerHTML='';
+      $('#base').value='';
+      $('#includeStartDH').checked = true;
+      $('#returnToBase').checked = false;
+      $('#rpmMode').value = 'loaded';
+      addLane();
+      history.replaceState(null,'',location.pathname);
+      clearMap();
+      $('#resultsTable').hidden = true;
+      lastCompute = null;
+      const cardsWrap = $('#resultsCards'); if(cardsWrap){ cardsWrap.innerHTML=''; cardsWrap.hidden=true; }
+    }
+
+    /* ========= LIBRARY (Render Disk / SQLite with local fallback) ========= */
+
+    const LIB_API = {
+      async list(){
+        // Try server
+        try{
+          const r = await fetch('/api/library', {credentials:'same-origin'});
+          if(r.ok) return await r.json();
+          throw new Error('non-ok');
+        }catch(_){
+          // Fallback localStorage
+          const raw = localStorage.getItem('farmpro_library') || '[]';
+          return JSON.parse(raw);
+        }
+      },
+      async save(name, data){
+        try{
+          const r = await fetch('/api/library', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({name, data})
+          });
+          if(r.ok) return await r.json(); // {ok:true,item}
+          throw new Error('non-ok');
+        }catch(_){
+          // local fallback
+          const list = await this.list();
+          const item = { id: 'loc_'+Date.now(), name, createdAt:new Date().toISOString(), data };
+          const updated = [item, ...list];
+          localStorage.setItem('farmpro_library', JSON.stringify(updated));
+          return {ok:true, item};
+        }
+      },
+      async remove(id){
+        try{
+          const r = await fetch('/api/library/'+encodeURIComponent(id), {method:'DELETE'});
+          if(r.ok) return await r.json();
+          throw new Error('non-ok');
+        }catch(_){
+          const list = await this.list();
+          const updated = list.filter(x=>x.id!==id);
+          localStorage.setItem('farmpro_library', JSON.stringify(updated));
+          return {ok:true};
+        }
+      }
+    };
+
+    function openLibrary(){
+      const dlg = $('#libModal');
+      dlg.setAttribute('open','');
+      refreshLibrary();
+    }
+    document.addEventListener('click', e=>{
+      if(e.target.matches('[data-close]')) document.getElementById('libModal').removeAttribute('open');
     });
 
-    // --- Boot ---
-    // Start with one lane (prefill mirrors your screenshot)
-    addLane({
-      origin: 'Shell Rock, IA',
-      destination: 'Menomonie, WI',
-      rate: '24',
-      tons: '30'
+    async function refreshLibrary(){
+      const itemsWrap = $('#libItems');
+      const empty = $('#libEmpty');
+      const q = ($('#libSearch').value||'').toLowerCase();
+      const list = await LIB_API.list();
+      itemsWrap.innerHTML = '';
+      const filtered = list.filter(it => !q || it.name.toLowerCase().includes(q));
+      if(!filtered.length){ empty.hidden=false; return; }
+      empty.hidden = true;
+      filtered.forEach(it=>{
+        const div = document.createElement('div');
+        div.className = 'lib-item';
+        div.innerHTML = `
+          <input type="checkbox" class="libCheck" value="${it.id}">
+          <div>
+            <div class="lib-name">${escapeHtml(it.name)}</div>
+            <div class="lib-when">${new Date(it.createdAt||Date.now()).toLocaleString()}</div>
+          </div>
+          <div class="lib-actions">
+            <button class="btn" data-load="${it.id}">Preview</button>
+            <button class="btn" data-append="${it.id}">Append</button>
+            <button class="btn" data-replace="${it.id}">Replace</button>
+            <button class="btn warn" data-del="${it.id}">Delete</button>
+          </div>
+        `;
+        itemsWrap.appendChild(div);
+      });
+    }
+
+    // Save current lanes
+    $('#libSave').addEventListener('click', async ()=>{
+      const name = ($('#libName').value||'').trim();
+      if(!name){ alert('Give this entry a name'); return; }
+      const data = {
+        base: $('#base').value.trim(),
+        includeStartDH: $('#includeStartDH').checked,
+        returnToBase: $('#returnToBase').checked,
+        rpmMode: $('#rpmMode').value,
+        lanes: readLanes()
+      };
+      if(!data.lanes.length){ alert('No lanes to save.'); return; }
+      await LIB_API.save(name, data);
+      $('#libName').value='';
+      toast('Saved to library.');
+      refreshLibrary();
     });
+
+    // List controls
+    $('#libRefresh').addEventListener('click', refreshLibrary);
+    $('#libSearch').addEventListener('input', ()=>{ clearTimeout(window._libT); window._libT=setTimeout(refreshLibrary, 150); });
+
+    // Bulk actions
+    $('#libAppend').addEventListener('click', async ()=>{
+      const ids = $$('.libCheck:checked').map(c=>c.value);
+      if(!ids.length){ alert('Select one or more entries.'); return; }
+      const list = await LIB_API.list();
+      const entries = ids.map(id => list.find(x=>x.id===id)).filter(Boolean);
+      entries.forEach(en => (en.data?.lanes||[]).forEach(addLane));
+      persist();
+      toast('Appended to calculator.');
+    });
+
+    $('#libReplace').addEventListener('click', async ()=>{
+      const ids = $$('.libCheck:checked').map(c=>c.value);
+      if(ids.length!==1){ alert('Select exactly one entry to replace.'); return; }
+      const list = await LIB_API.list();
+      const en = list.find(x=>x.id===ids[0]);
+      if(!en) return;
+      $('#lanes').innerHTML='';
+      (en.data?.lanes||[]).forEach(addLane);
+      $('#base').value = en.data?.base || '';
+      $('#includeStartDH').checked = !!en.data?.includeStartDH;
+      $('#returnToBase').checked = !!en.data?.returnToBase;
+      $('#rpmMode').value = en.data?.rpmMode || 'loaded';
+      persist();
+      toast('Replaced lanes from library entry.');
+    });
+
+    $('#libDelete').addEventListener('click', async ()=>{
+      const ids = $$('.libCheck:checked').map(c=>c.value);
+      if(!ids.length){ alert('Select entries to delete.'); return; }
+      if(!confirm('Delete selected entries?')) return;
+      for(const id of ids){ await LIB_API.remove(id); }
+      toast('Deleted.');
+      refreshLibrary();
+    });
+
+    // Per-item quick actions (Preview/Append/Replace/Delete)
+    document.getElementById('libItems').addEventListener('click', async (e)=>{
+      const id = e.target.dataset.load || e.target.dataset.append || e.target.dataset.replace || e.target.dataset.del;
+      if(!id) return;
+      const list = await LIB_API.list();
+      const en = list.find(x=>x.id===id);
+      if(!en) return;
+
+      if(e.target.dataset.load){
+        // quick preview alert (simple)
+        alert(`${en.name}\n\nBase: ${en.data?.base||'-'}\nLanes: ${(en.data?.lanes||[]).length}`);
+      } else if(e.target.dataset.append){
+        (en.data?.lanes||[]).forEach(addLane); persist(); toast('Appended.');
+      } else if(e.target.dataset.replace){
+        $('#lanes').innerHTML=''; (en.data?.lanes||[]).forEach(addLane);
+        $('#base').value = en.data?.base || '';
+        $('#includeStartDH').checked = !!en.data?.includeStartDH;
+        $('#returnToBase').checked = !!en.data?.returnToBase;
+        $('#rpmMode').value = en.data?.rpmMode || 'loaded';
+        persist(); toast('Replaced.');
+      } else if(e.target.dataset.del){
+        if(confirm(`Delete "${en.name}"?`)){ await LIB_API.remove(id); toast('Deleted.'); refreshLibrary(); }
+      }
+    });
+
+    // Export / Import JSON
+    $('#libExport').addEventListener('click', async ()=>{
+      const data = await LIB_API.list();
+      const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement('a'), {href:url, download:'farmpro_library.json'});
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+    $('#libImport').addEventListener('change', async (e)=>{
+      const file = e.target.files?.[0]; if(!file) return;
+      const text = await file.text();
+      let arr=[]; try{ arr = JSON.parse(text); }catch{ alert('Invalid JSON'); return; }
+      // When using server, post each; otherwise merge into local
+      try{
+        for(const it of arr){ await fetch('/api/library', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:it.name, data:it.data})}); }
+      }catch{
+        const existing = await LIB_API.list();
+        const merged = [...arr.map(x=>({...x, id:'loc_'+(x.id||Date.now()+Math.random())})), ...existing];
+        localStorage.setItem('farmpro_library', JSON.stringify(merged));
+      }
+      toast('Imported.');
+      e.target.value=''; // reset
+      refreshLibrary();
+    });
+
   </script>
+
+  <!-- Google Maps API -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAX9GFUEGbzuUx3KefbZw9_a0_eDOiNFf0&libraries=places&callback=initMap"></script>
 </body>
 </html>
