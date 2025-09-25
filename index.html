@@ -287,6 +287,8 @@ textarea::placeholder {
       <!-- PANELS (mobile only; blocks move into these hosts on small screens) -->
       <section id="panel-lanes" class="tabpanel" role="tabpanel" aria-labelledby="tab-lanes" hidden>
         <div class="row" style="gap:8px; margin:4px 0 10px">
+               <!-- NEW mobile-only Add lane button -->
+          <button type="button" class="btn success" id="addLane_m">+ Add lane</button>
           <button type="button" class="btn primary" id="calc_m">Calculate & Map</button>
           <button type="button" class="btn" id="clearAll_m">Clear all</button>
           <button type="button" class="btn" id="openLib_m">Library</button>
@@ -445,6 +447,7 @@ textarea::placeholder {
       $('#openLib').addEventListener('click', openLibrary);
 
       // Mobile buttons
+        $('#addLane_m')?.addEventListener('click', () => addLane());
       $('#calc_m')?.addEventListener('click', calculateAndMap);
       $('#clearAll_m')?.addEventListener('click', clearAll);
       $('#openLib_m')?.addEventListener('click', openLibrary);
